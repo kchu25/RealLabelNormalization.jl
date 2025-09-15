@@ -167,10 +167,6 @@ RealLabelNormalization.jl is optimized for performance:
 - [MLJ.jl](https://github.com/alan-turing-institute/MLJ.jl): Machine learning framework with preprocessing
 - [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl): Machine learning utilities
 
-## Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
 ### Development Setup
 
 ```julia
