@@ -9,13 +9,13 @@ A Julia package for robust normalization of real-valued labels, commonly used in
 
 ## Features
 
-- 🎯 **Multiple normalization methods**: Min-max and Z-score normalization
-- 🔄 **Flexible normalization modes**: Global or column-wise normalization for multi-target regression
-- 🛡️ **Robust outlier handling**: Configurable quantile-based clipping to handle extreme values
-- 🔢 **NaN handling**: Preserves NaN values while computing statistics on valid data
-- 🔒 **Consistent train/test normalization**: Save statistics from training data and apply to test data
-- ⚡ **High performance**: Optimized for large datasets with minimal memory overhead
-- 📊 **Multi-target support**: Handle single or multiple regression targets seamlessly
+- **Multiple normalization methods**: Min-max and Z-score normalization
+- **Flexible normalization modes**: Global or column-wise normalization for multi-target regression
+- **Robust outlier handling**: Configurable quantile-based clipping to handle extreme values
+- **NaN handling**: Preserves NaN values while computing statistics on valid data
+- **Consistent train/test normalization**: Save statistics from training data and apply to test data
+- **High performance**: Optimized for large datasets with minimal memory overhead
+- **Multi-target support**: Handle single or multiple regression targets seamlessly
 
 ## Installation
 
@@ -84,16 +84,16 @@ normalized = normalize_labels(weather_data; mode=:columnwise)
 
 ## Documentation
 
-- 📚 [**User Guide**](https://kchu25.github.io/RealLabelNormalization.jl/dev/guide/): Detailed usage patterns and best practices
-- 💡 [**Examples**](https://kchu25.github.io/RealLabelNormalization.jl/dev/examples/): Comprehensive examples for various scenarios
-- 📖 [**API Reference**](https://kchu25.github.io/RealLabelNormalization.jl/dev/api/): Complete function documentation
+- [**User Guide**](https://kchu25.github.io/RealLabelNormalization.jl/dev/guide/): Detailed usage patterns and best practices
+- [**Examples**](https://kchu25.github.io/RealLabelNormalization.jl/dev/examples/): Comprehensive examples for various scenarios
+- [**API Reference**](https://kchu25.github.io/RealLabelNormalization.jl/dev/api/): Complete function documentation
 
 ## Why RealLabelNormalization.jl?
 
 ### Problem: Inconsistent Normalization in ML Pipelines
 
 ```julia
-# ❌ Common mistake: computing statistics on entire dataset
+# Common mistake: computing statistics on entire dataset
 all_data = [train_data; test_data]
 normalized_all = (all_data .- mean(all_data)) ./ std(all_data)
 train_norm = normalized_all[1:length(train_data)]
@@ -104,7 +104,7 @@ test_norm = normalized_all[length(train_data)+1:end]
 ### Solution: Proper Train/Test Separation
 
 ```julia
-# ✅ Correct approach with RealLabelNormalization.jl
+# Correct approach with RealLabelNormalization.jl
 stats = compute_normalization_stats(train_data)  # Only training data
 train_normalized = apply_normalization(train_data, stats)
 test_normalized = apply_normalization(test_data, stats)  # Same stats applied
@@ -155,10 +155,10 @@ normalized = normalize_labels(labels; range=(-2, 2))
 
 RealLabelNormalization.jl is optimized for performance:
 
-- ⚡ **Efficient algorithms**: Vectorized operations with minimal allocations
-- 🔄 **Streaming support**: Process large datasets that don't fit in memory
-- 📊 **Multi-threading**: Automatic parallelization for large matrices
-- 💾 **Memory efficient**: In-place operations when possible
+- **Efficient algorithms**: Vectorized operations with minimal allocations
+- **Streaming support**: Process large datasets that don't fit in memory
+- **Multi-threading**: Automatic parallelization for large matrices
+- **Memory efficient**: In-place operations when possible
 
 ## Related Packages
 
