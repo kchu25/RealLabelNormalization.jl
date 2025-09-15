@@ -12,7 +12,7 @@ in statistical computations and preserving them in the output.
   - `:minmax`: Min-max normalization (default)
   - `:zscore`: Z-score normalization (mean=0, std=1)
 - `range::Tuple{Real,Real}`: Target range for min-max normalization (default: (-1, 1))
-  - `(-1, 1)`: Scaled min-max to [-1,1] (default)
+  - `(-1, 1)`: Scaled min-max to `[-1,1]` (default)
   - `(0, 1)`: Standard min-max to [0,1]
   - Custom ranges: e.g., `(-2, 2)`
 - `mode::Symbol`: Normalization scope
