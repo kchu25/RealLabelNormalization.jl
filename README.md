@@ -5,7 +5,8 @@
 [![Build Status](https://github.com/kchu25/RealLabelNormalization.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/kchu25/RealLabelNormalization.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/kchu25/RealLabelNormalization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/kchu25/RealLabelNormalization.jl)
 
-A Julia package for robust normalization of real-valued labels, commonly used in regression tasks. This package provides various normalization methods with built-in outlier handling and NaN support, ensuring consistent preprocessing across train/validation/test splits.
+
+Instead of using [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl) and writing a customized normalization procedure every time, this package is made for robust normalization of real-valued labels, commonly used in regression tasks. This package provides various normalization methods with built-in outlier handling and NaN support, ensuring consistent preprocessing across train/validation/test splits.
 
 ## Features
 

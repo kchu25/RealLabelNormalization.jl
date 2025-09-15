@@ -105,6 +105,23 @@ end
 
 Compute normalization statistics from training data for later application to validation/test sets.
 
+# Inputs
+- `labels`: Vector or matrix where the last dimension is the number of samples
+- `method::Symbol`: Normalization method
+  - `:minmax`: Min-max normalization (default)
+  - `:zscore`: Z-score normalization (mean=0, std=1)
+- `range::Tuple{Real,Real}`: Target range for min-max normalization (default (-1, 1))
+    - `(-1, 1)`: Scaled min-max to `[-1,1]` (default)
+    - `(0, 1)`: Standard min-max to [0,1]
+    - Custom ranges: e.g., `(-2, 2)`
+- `mode::Symbol`: Normalization scope
+  - `:global`: Normalize across all values (default)
+  - `:columnwise`: Normalize each column independently
+- `clip_quantiles::Union{Nothing,Tuple{Real,Real}}`: Percentile values (0-1) for outlier clipping before normalization
+  - `(0.01, 0.99)`: Clip to 1st-99th percentiles (default)
+  - `(0.05, 0.95)`: Clip to 5th-95th percentiles (more aggressive)
+  - `nothing`: No clipping
+
 # Returns
 - Named tuple with normalization parameters that can be used with `apply_normalization`
 
