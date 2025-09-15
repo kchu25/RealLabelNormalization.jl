@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Examples · RealLabelNormalization.jl</title><meta name="title" content="Examples · RealLabelNormalization.jl"/><meta property="og:title" content="Examples · RealLabelNormalization.jl"/><meta property="twitter:title" content="Examples · RealLabelNormalization.jl"/><meta name="description" content="Documentation for RealLabelNormalization.jl."/><meta property="og:description" content="Documentation for RealLabelNormalization.jl."/><meta property="twitter:description" content="Documentation for RealLabelNormalization.jl."/><meta property="og:url" content="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><meta property="twitter:url" content="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><link rel="canonical" href="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">RealLabelNormalization.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../guide/">User Guide</a></li><li class="is-active"><a class="tocitem" href>Examples</a><ul class="internal"><li><a class="tocitem" href="#Basic-Examples"><span>Basic Examples</span></a></li><li><a class="tocitem" href="#Machine-Learning-Workflow-Examples"><span>Machine Learning Workflow Examples</span></a></li><li><a class="tocitem" href="#Advanced-Examples"><span>Advanced Examples</span></a></li><li><a class="tocitem" href="#Performance-Considerations"><span>Performance Considerations</span></a></li></ul></li><li><a class="tocitem" href="../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/kchu25/RealLabelNormalization.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/kchu25/RealLabelNormalization.jl/blob/main/docs/src/examples.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h1><p>This page provides comprehensive examples of using RealLabelNormalization.jl in various scenarios.</p><h2 id="Basic-Examples"><a class="docs-heading-anchor" href="#Basic-Examples">Basic Examples</a><a id="Basic-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Examples" title="Permalink"></a></h2><h3 id="Example-1:-Single-Target-Regression"><a class="docs-heading-anchor" href="#Example-1:-Single-Target-Regression">Example 1: Single Target Regression</a><a id="Example-1:-Single-Target-Regression-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-Single-Target-Regression" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+using Random
+Random.seed!(42)
+
+# Simulate house prices with some outliers
+house_prices = [200_000, 250_000, 180_000, 320_000, 275_000, 
+                190_000, 2_000_000, 210_000, 290_000, 240_000]  # 2M is outlier
+
+println(&quot;Original prices: &quot;, house_prices)
+println(&quot;Min: $(minimum(house_prices)), Max: $(maximum(house_prices))&quot;)
+
+# Normalize with outlier clipping
+normalized = normalize_labels(house_prices)
+println(&quot;Normalized: &quot;, normalized)
+println(&quot;Range: [$(minimum(normalized)), $(maximum(normalized))]&quot;)</code></pre><h3 id="Example-2:-Multi-Target-Regression"><a class="docs-heading-anchor" href="#Example-2:-Multi-Target-Regression">Example 2: Multi-Target Regression</a><a id="Example-2:-Multi-Target-Regression-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Multi-Target-Regression" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Simulate multi-target regression: [temperature, humidity, pressure]
+weather_data = [20.5 65.0 1013.2;
+                22.1 58.3 1015.8;
+                18.9 72.1 1008.9;
+                25.4 45.2 1020.1;
+                19.2 68.7 1011.4;
+                50.0 30.0 950.0;   # Outlier row
+                21.8 61.5 1016.3]
+
+println(&quot;Original data shape: &quot;, size(weather_data))
+
+# Column-wise normalization (each variable independently)
+normalized_col = normalize_labels(weather_data; mode=:columnwise)
+println(&quot;Column-wise normalized ranges:&quot;)
+for i in 1:size(normalized_col, 2)
+    col_range = [minimum(normalized_col[:, i]), maximum(normalized_col[:, i])]
+    println(&quot;  Column $i: $col_range&quot;)
+end
+
+# Global normalization (all variables on same scale)
+normalized_global = normalize_labels(weather_data; mode=:global)
+println(&quot;Global normalized range: [$(minimum(normalized_global)), $(maximum(normalized_global))]&quot;)</code></pre><h2 id="Machine-Learning-Workflow-Examples"><a class="docs-heading-anchor" href="#Machine-Learning-Workflow-Examples">Machine Learning Workflow Examples</a><a id="Machine-Learning-Workflow-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Machine-Learning-Workflow-Examples" title="Permalink"></a></h2><h3 id="Example-3:-Complete-Train/Validation/Test-Pipeline"><a class="docs-heading-anchor" href="#Example-3:-Complete-Train/Validation/Test-Pipeline">Example 3: Complete Train/Validation/Test Pipeline</a><a id="Example-3:-Complete-Train/Validation/Test-Pipeline-1"></a><a class="docs-heading-anchor-permalink" href="#Example-3:-Complete-Train/Validation/Test-Pipeline" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+using Random
+Random.seed!(123)
+
+# Simulate a regression dataset
+n_samples = 1000
+n_features = 5
+X = randn(n_samples, n_features)
+
+# Target with some non-linear relationship and outliers
+y = 2 * X[:, 1] + 0.5 * X[:, 2].^2 - X[:, 3] + 0.1 * randn(n_samples)
+# Add a few outliers
+y[1:5] .+= 50 * randn(5)
+
+# Split data
+train_idx = 1:600
+val_idx = 601:800
+test_idx = 801:1000
+
+X_train, y_train = X[train_idx, :], y[train_idx]
+X_val, y_val = X[val_idx, :], y[val_idx]
+X_test, y_test = X[test_idx, :], y[test_idx]
+
+println(&quot;Original target statistics:&quot;)
+println(&quot;  Train: mean=$(mean(y_train)), std=$(std(y_train))&quot;)
+println(&quot;  Val:   mean=$(mean(y_val)), std=$(std(y_val))&quot;)
+println(&quot;  Test:  mean=$(mean(y_test)), std=$(std(y_test))&quot;)
+
+# Step 1: Compute normalization statistics from training data ONLY
+stats = compute_normalization_stats(y_train; method=:zscore)
+println(&quot;\\nNormalization statistics computed from training data:&quot;)
+println(stats)
+
+# Step 2: Apply normalization to all splits
+y_train_norm = apply_normalization(y_train, stats)
+y_val_norm = apply_normalization(y_val, stats)
+y_test_norm = apply_normalization(y_test, stats)
+
+println(&quot;\\nNormalized target statistics:&quot;)
+println(&quot;  Train: mean=$(mean(y_train_norm)), std=$(std(y_train_norm))&quot;)
+println(&quot;  Val:   mean=$(mean(y_val_norm)), std=$(std(y_val_norm))&quot;)
+println(&quot;  Test:  mean=$(mean(y_test_norm)), std=$(std(y_test_norm))&quot;)
+
+# Step 3: Train model on normalized data (placeholder)
+# model = fit_model(X_train, y_train_norm)
+# y_pred_norm = predict(model, X_test)
+
+# Simulate some predictions
+y_pred_norm = y_test_norm + 0.1 * randn(length(y_test_norm))  # Add some error
+
+# Step 4: Denormalize predictions back to original scale
+y_pred_original = denormalize_labels(y_pred_norm, stats)
+
+println(&quot;\\nPrediction comparison (first 10 samples):&quot;)
+println(&quot;  True:      &quot;, y_test[1:10])
+println(&quot;  Predicted: &quot;, y_pred_original[1:10])
+println(&quot;  Error:     &quot;, abs.(y_test[1:10] - y_pred_original[1:10]))</code></pre><h3 id="Example-4:-Handling-Missing-Data"><a class="docs-heading-anchor" href="#Example-4:-Handling-Missing-Data">Example 4: Handling Missing Data</a><a id="Example-4:-Handling-Missing-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Example-4:-Handling-Missing-Data" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+
+# Data with missing values (NaN)
+data_with_missing = [1.0, 2.0, NaN, 4.0, 5.0, 6.0, NaN, 8.0, 100.0, 9.0]
+
+println(&quot;Original data: &quot;, data_with_missing)
+println(&quot;Valid values: &quot;, data_with_missing[.!isnan.(data_with_missing)])
+
+# Normalize - NaN values are preserved, stats computed on valid data
+normalized = normalize_labels(data_with_missing)
+println(&quot;Normalized: &quot;, normalized)
+
+# Check that NaN positions are preserved
+println(&quot;NaN preserved? &quot;, isnan.(data_with_missing) == isnan.(normalized))
+
+# Compute statistics - works with missing data
+stats = compute_normalization_stats(data_with_missing)
+println(&quot;\\nComputed statistics: &quot;, stats)</code></pre><h2 id="Advanced-Examples"><a class="docs-heading-anchor" href="#Advanced-Examples">Advanced Examples</a><a id="Advanced-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Examples" title="Permalink"></a></h2><h3 id="Example-5:-Comparing-Normalization-Methods"><a class="docs-heading-anchor" href="#Example-5:-Comparing-Normalization-Methods">Example 5: Comparing Normalization Methods</a><a id="Example-5:-Comparing-Normalization-Methods-1"></a><a class="docs-heading-anchor-permalink" href="#Example-5:-Comparing-Normalization-Methods" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+using Statistics
+
+# Create data with different distributions
+uniform_data = rand(100) * 100
+normal_data = randn(100) * 20 .+ 50
+skewed_data = [rand() &lt; 0.8 ? rand() * 10 : rand() * 100 for _ in 1:100]
+
+datasets = [(&quot;Uniform&quot;, uniform_data), (&quot;Normal&quot;, normal_data), (&quot;Skewed&quot;, skewed_data)]
+
+for (name, data) in datasets
+    println(&quot;\\n=== $name Data ===&quot;)
+    println(&quot;Original: mean=$(mean(data)), std=$(std(data))&quot;)
+    
+    # Min-max normalization
+    minmax_norm = normalize_labels(data; method=:minmax)
+    println(&quot;Min-max: range=[$(minimum(minmax_norm)), $(maximum(minmax_norm))]&quot;)
+    
+    # Z-score normalization
+    zscore_norm = normalize_labels(data; method=:zscore)
+    println(&quot;Z-score: mean=$(mean(zscore_norm)), std=$(std(zscore_norm))&quot;)
+    
+    # Effect of outlier clipping
+    no_clip = normalize_labels(data; clip_quantiles=nothing)
+    with_clip = normalize_labels(data; clip_quantiles=(0.05, 0.95))
+    println(&quot;No clip range: [$(minimum(no_clip)), $(maximum(no_clip))]&quot;)
+    println(&quot;With clip range: [$(minimum(with_clip)), $(maximum(with_clip))]&quot;)
+end</code></pre><h3 id="Example-6:-Custom-Normalization-Ranges"><a class="docs-heading-anchor" href="#Example-6:-Custom-Normalization-Ranges">Example 6: Custom Normalization Ranges</a><a id="Example-6:-Custom-Normalization-Ranges-1"></a><a class="docs-heading-anchor-permalink" href="#Example-6:-Custom-Normalization-Ranges" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+
+# Original data
+data = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+println(&quot;Original data: &quot;, data)
+
+# Different target ranges
+ranges = [(-1, 1), (0, 1), (-2, 2), (-10, 10)]
+
+for range in ranges
+    normalized = normalize_labels(data; range=range, clip_quantiles=nothing)
+    actual_range = (minimum(normalized), maximum(normalized))
+    println(&quot;Target $range -&gt; Actual $actual_range&quot;)
+end</code></pre><h3 id="Example-7:-Multi-Target-with-Different-Scales"><a class="docs-heading-anchor" href="#Example-7:-Multi-Target-with-Different-Scales">Example 7: Multi-Target with Different Scales</a><a id="Example-7:-Multi-Target-with-Different-Scales-1"></a><a class="docs-heading-anchor-permalink" href="#Example-7:-Multi-Target-with-Different-Scales" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+
+# Multi-target data with very different scales
+# Column 1: Small values (0-10)
+# Column 2: Medium values (100-1000)  
+# Column 3: Large values (10000-100000)
+multi_scale_data = [1.0 100.0 10000.0;
+                    2.0 200.0 20000.0;
+                    3.0 300.0 30000.0;
+                    4.0 400.0 40000.0;
+                    5.0 500.0 50000.0;
+                    100.0 50000.0 5000.0]  # Outlier row
+
+println(&quot;Original data ranges per column:&quot;)
+for i in 1:3
+    col_range = [minimum(multi_scale_data[:, i]), maximum(multi_scale_data[:, i])]
+    println(&quot;  Column $i: $col_range&quot;)
+end
+
+# Compare global vs column-wise normalization
+global_norm = normalize_labels(multi_scale_data; mode=:global)
+column_norm = normalize_labels(multi_scale_data; mode=:columnwise)
+
+println(&quot;\\nGlobal normalization - range per column:&quot;)
+for i in 1:3
+    col_range = [minimum(global_norm[:, i]), maximum(global_norm[:, i])]
+    println(&quot;  Column $i: $col_range&quot;)
+end
+
+println(&quot;\\nColumn-wise normalization - range per column:&quot;)
+for i in 1:3
+    col_range = [minimum(column_norm[:, i]), maximum(column_norm[:, i])]
+    println(&quot;  Column $i: $col_range&quot;)
+end</code></pre><h2 id="Performance-Considerations"><a class="docs-heading-anchor" href="#Performance-Considerations">Performance Considerations</a><a id="Performance-Considerations-1"></a><a class="docs-heading-anchor-permalink" href="#Performance-Considerations" title="Permalink"></a></h2><h3 id="Example-8:-Large-Dataset-Handling"><a class="docs-heading-anchor" href="#Example-8:-Large-Dataset-Handling">Example 8: Large Dataset Handling</a><a id="Example-8:-Large-Dataset-Handling-1"></a><a class="docs-heading-anchor-permalink" href="#Example-8:-Large-Dataset-Handling" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+using BenchmarkTools
+
+# Simulate large dataset
+large_data = randn(100_000, 10)  # 100k samples, 10 targets
+
+println(&quot;Dataset size: &quot;, size(large_data))
+
+# Benchmark different operations
+println(&quot;\\nPerformance benchmarks:&quot;)
+@btime normalize_labels($large_data; mode=:columnwise)
+@btime compute_normalization_stats($large_data; mode=:columnwise)
+@btime apply_normalization($large_data, $stats) setup=(stats=compute_normalization_stats($large_data; mode=:columnwise))</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« User Guide</a><a class="docs-footer-nextpage" href="../api/">API Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 15 September 2025 15:27">Monday 15 September 2025</span>. Using Julia version 1.11.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
