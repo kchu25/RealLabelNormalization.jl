@@ -209,7 +209,7 @@ function _denormalize_zscore(normalized_labels::AbstractArray, stats::NamedTuple
             if sigma == 0
                 denormalized[:, col] .= mu
             else
-                denormalized[:, col] = normalized_labels[:, col] .* sigma .+ mu
+                denormalized[:, col] = @. (@view normalized_labels[:, col]) * sigma + mu
             end
         end
         return denormalized

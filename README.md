@@ -14,7 +14,7 @@ Avoiding data leakage (computing stats on the training set only), clipping outli
 - Your dataset tuple `(X, Y)` consists of `n` (**data point, label**) pairs. This package only operates on the **labels** `Y`. 
 - Two cases for `Y`:
     - **Scalar-valued labels:** `Y` is a vector.
-    - **Matrix-valued labels:** `Y` is a matrix, with the second dimension corresponding to data points (`size(Y,2) = n`).
+    - **Matrix-valued labels:** `Y` is a matrix, with the second dimension corresponding to data points, i.e.`size(Y,2) = n`.
 
 This package normalizes the values in `Y`. Once normalized, you can feed them directly into a Flux DataLoader, e.g.
 
@@ -22,6 +22,18 @@ This package normalizes the values in `Y`. Once normalized, you can feed them di
 using Flux
 dataloader = Flux.DataLoader((data=X, label=Y))
 ```
+
+Assume you have train, valid, and test dataset, i.e. `(X_train, Y_train), (X_valid, Y_valid), (X_test, Y_test)`.
+
+The normalization procedure performs the following operations, in order:
+1. **(Optional) Clip outliers:** Specify the quantiles as a 2-tuple, e.g.`(0.01, 0.99)`, to clamp extreme values.  
+2. **Apply normalization** (e.g., z-score) to the labels.  
+   - When `Y` is a matrix, normalization can be applied **columnwise** (`:columnwise`) or **as a whole** (`:global`).  
+   - `NaN` values are automatically skipped and preserved. 
+   - The normalization statistics are stored and can be applied to validation or test labels (e.g., `Y_valid`, `Y_test`).
+
+
+
 
 ## Features
 
