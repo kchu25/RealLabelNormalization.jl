@@ -39,16 +39,20 @@ Pkg.add("RealLabelNormalization")
 ```julia
 using RealLabelNormalization
 
-# Basic min-max normalization to [-1, 1] with outlier clipping
-labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]  # 100.0 is an outlier
-normalized = normalize_labels(labels)
+# Step 1: Compute normalization statistics from training data ONLY
+train_labels = [1.5, 2.3, 4.1, 3.7, 5.2, 100.0]  # Contains outlier
+stats = compute_normalization_stats(train_labels)
 
-# Z-score normalization
-normalized = normalize_labels(labels; method=:zscore)
+# Step 2: Apply to training data
+train_normalized = apply_normalization(train_labels, stats)
 
-# Multi-target normalization (matrix input)
-labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0]
-normalized = normalize_labels(labels_matrix; mode=:columnwise)
+# Step 3: Apply same statistics to test data (crucial for consistency!)
+test_labels = [2.1, 3.9, 4.5]
+test_normalized = apply_normalization(test_labels, stats)
+
+# Step 4: After model prediction, denormalize back to original scale
+predictions_normalized = [-0.1, 0.3, 0.7]
+predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
 ## Key Features
@@ -61,6 +65,23 @@ normalized = normalize_labels(labels_matrix; mode=:columnwise)
 - **High performance**: Optimized for large datasets with minimal memory overhead
 
 ## Usage Patterns
+
+### Convenience Functions
+
+```julia
+using RealLabelNormalization
+
+# Basic min-max normalization to [-1, 1] with outlier clipping
+labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]  # 100.0 is an outlier
+normalized = normalize_labels(labels)
+
+# Z-score normalization
+normalized = normalize_labels(labels; method=:zscore)
+
+# Multi-target normalization (matrix input)
+labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0]
+normalized = normalize_labels(labels_matrix; mode=:columnwise)
+```
 
 ### Machine Learning
 
