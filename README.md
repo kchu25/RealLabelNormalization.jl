@@ -23,7 +23,7 @@ using Flux
 dataloader = Flux.DataLoader((data=X, label=Y))
 ```
 
-Assume you have train, valid, and test dataset, i.e. `(X_train, Y_train), (X_valid, Y_valid), (X_test, Y_test)`.
+Assume you have train, valid, and test datasets, i.e. `(X_train, Y_train), (X_valid, Y_valid), (X_test, Y_test)`.
 
 The normalization procedure performs the following operations, in order:
 1. **(Optional) Clip outliers:** Specify the quantiles as a 2-tuple, e.g.`(0.01, 0.99)`, to clamp extreme values.  
