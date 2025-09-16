@@ -130,7 +130,7 @@ train_normalized = apply_normalization(weather_train, stats)
 test_normalized = apply_normalization(weather_test, stats)
 ```
 
-### Advanced Options
+### Other Options
 
 ```julia
 # Custom clipping percentiles for extreme outliers
