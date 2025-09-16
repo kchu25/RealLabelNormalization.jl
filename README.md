@@ -5,70 +5,29 @@
 [![Build Status](https://github.com/kchu25/RealLabelNormalization.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/kchu25/RealLabelNormalization.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/kchu25/RealLabelNormalization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/kchu25/RealLabelNormalization.jl)
 
+Common subroutines for normalizing real-valued labels prior to ML training.
 
-## Contents
+## Why This Package?
 
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Key Use Cases](#key-use-cases)
-- [Features](#features)
-- [Documentation](#documentation)
-- [Why This Package?](#why-reallabelnormalizationjl)
+Avoiding data leakage, clipping outliers, and handling NaNs isn't hard — but it's tedious, especially when you end up reinventing the same workflow for every dataset (often with tools like [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl)). 
 
-
-# Motivation 
-Avoiding data leakage (computing stats on the training set only), clipping outliers, and handling NaNs isn’t hard — but it’s tedious, especially when you end up reinventing the same workflow for every dataset (often with tools like [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl)). This package provides robust normalization of real-valued labels for regression tasks with built-in outlier handling and NaN support, ensuring consistent, leak-free preprocessing across train/validation/test splits.
-
-# Overview
-
-This package normalizes labels in your datasets for machine learning workflows. It works with your dataset tuple `(X, Y)` containing `n` (data point, label) pairs, focusing exclusively on transforming the labels `Y`.
-
-# Label Types
-
-This package handles two label formats:
-
-- Scalar-valued labels: `Y` is a vector.  
-- Matrix-valued labels: `Y` is a matrix where `size(Y, 2) = n` (second dimension corresponds to the number of data points).
-
-# Normalization Process
-
-## Workflow Integration
-
-When working with train/validation/test splits — e.g., `(X_train, Y_train)`, `(X_valid, Y_valid)`, `(X_test, Y_test)` — the normalization statistics computed from the training data can be consistently applied to the validation and test labels. The transformations are applied in the following sequence:
-
-1. Outlier clipping (optional): Clamp extreme values using quantile bounds, e.g., `(0.01, 0.99)`.  
-2. Normalization: Apply a normalization method (`:minmax` or `:zscore`) to the labels.  
-   - For matrices: choose **columnwise** (`:columnwise`) or **global** (`:global`) normalization.  
-   - `NaN` values are automatically preserved.  
-   - Statistics are stored for consistent application to validation and test sets.
-
-### Examples
-
-Vector labels with `:zscore` normalization:
-
+### The Problem
 ```julia
-stats = compute_normalization_stats(Y_train; method=:zscore, clip_quantiles=(0.01, 0.99))
-Y_train_normalized = apply_normalization(Y_train, stats)
-Y_valid_normalized = apply_normalization(Y_valid, stats)
-```
-Matrix labels with min-max normalization in range `(-1,1)` applied columnwise:
-```julia
-stats = compute_normalization_stats(Y_train; method=:minmax, mode=:columnwise, 
-    range=(-1, 1), clip_quantiles=(0.01, 0.99))
-Y_train_normalized = apply_normalization(Y_train, stats)
-Y_valid_normalized = apply_normalization(test_labels, stats)
+# Common mistake: computing statistics on entire dataset
+all_data = [train_data; test_data]
+normalized_all = (all_data .- mean(all_data)) ./ std(all_data)
+# This leads to data leakage and poor generalization!
 ```
 
-## With Flux
-
-After normalization, labels can be fed directly into a Flux DataLoader:
-
+### The Solution
 ```julia
-using Flux
-dataloader = Flux.DataLoader((data=X, label=Y))
+# Correct approach with RealLabelNormalization.jl
+stats = compute_normalization_stats(train_data)  # Only training data
+train_normalized = apply_normalization(train_data, stats)
+test_normalized = apply_normalization(test_data, stats)  # Same stats
 ```
 
-# Installation
+## Installation
 
 ```julia
 using Pkg
@@ -83,7 +42,6 @@ using RealLabelNormalization
 # Basic min-max normalization to [-1, 1] with outlier clipping
 labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]  # 100.0 is an outlier
 normalized = normalize_labels(labels)
-# Output: [-1.0, -0.2, -0.6, 0.4, -0.8, 1.0]
 
 # Z-score normalization
 normalized = normalize_labels(labels; method=:zscore)
@@ -93,9 +51,18 @@ labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0]
 normalized = normalize_labels(labels_matrix; mode=:columnwise)
 ```
 
-## Key Use Cases
+## Key Features
 
-### Machine Learning Pipeline
+- **Leak-free workflows**: Compute stats on training data, apply to validation/test
+- **Automatic outlier handling**: Configurable quantile-based clipping (default: 1st-99th percentiles)
+- **NaN preservation**: Statistics computed on valid data only, NaNs preserved in output
+- **Multi-target support**: Handle vector or matrix labels with global/column-wise modes
+- **Two normalization methods**: Min-max (configurable range) and Z-score
+- **High performance**: Optimized for large datasets with minimal memory overhead
+
+## Usage Patterns
+
+### Machine Learning
 
 ```julia
 # Step 1: Compute normalization statistics from training data ONLY
@@ -114,36 +81,87 @@ predictions_normalized = [-0.1, 0.3, 0.7]
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
-
-### Handling Different Data Types
+### Vector-valued Regression
 
 ```julia
-# Works with missing data (NaN)
-labels_with_nan = [1.0, 2.0, NaN, 4.0, 5.0]
-normalized = normalize_labels(labels_with_nan)  # NaN preserved
-
-# Multi-target regression with different scales
-weather_data = [
+# Matrix labels where each column is a different target
+weather_train = [
     20.5  65.0  1013.2;  # [temperature, humidity, pressure]
     22.1  58.3  1015.8;
     18.9  72.1  1008.9;
     25.4  45.2  1020.1
 ]
 
-# Normalize each target independently
-normalized = normalize_labels(weather_data; mode=:columnwise)
+weather_test = [
+    19.8  70.2  1011.5;
+    23.1  55.0  1018.3
+]
+
+# Compute stats from training data with custom options
+stats = compute_normalization_stats(weather_train; 
+    method=:zscore, 
+    mode=:columnwise,  # Each target independently (recommended for different units)
+    clip_quantiles=(0.05, 0.95)  # More aggressive outlier clipping
+)
+
+# Apply to training and test data
+train_normalized = apply_normalization(weather_train, stats)
+test_normalized = apply_normalization(weather_test, stats)
 ```
 
-## Features
+### Advanced Options
 
-- **Multiple normalization methods**: Min-max and Z-score normalization
-- **Flexible normalization modes**: Global or column-wise normalization for multi-target regression
-- **Robust outlier handling**: Configurable quantile-based clipping to handle extreme values
-- **NaN handling**: Preserves NaN values while computing statistics on valid data
-- **Consistent train/test normalization**: Save statistics from training data and apply to test data
-- **High performance**: Optimized for large datasets with minimal memory overhead
-- **Multi-target support**: Handle single or multiple regression targets seamlessly
+```julia
+# Custom clipping percentiles for extreme outliers
+normalized = normalize_labels(labels; clip_quantiles=(0.05, 0.95))
 
+# No clipping (not recommended for real data)
+normalized = normalize_labels(labels; clip_quantiles=nothing)
+
+# Custom range for min-max normalization
+normalized = normalize_labels(labels; range=(0, 1))  # Scale to [0,1]
+
+# Works seamlessly with NaN values
+labels_with_nan = [1.0, 2.0, NaN, 4.0, 5.0]
+normalized = normalize_labels(labels_with_nan)  # NaN preserved
+```
+
+## Methods and Modes
+
+| Method | Description | Use Case | Output Range |
+|--------|-------------|----------|--------------|
+| **Min-Max** | Scales to specified range | Known data bounds, neural networks | User-defined (default: [-1,1]) |
+| **Z-Score** | Zero mean, unit variance | Normally distributed data, linear models | Approximately [-3,3] |
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Global** | Single normalization across all features | Related measurements on same scale |
+| **Column-wise** | Independent normalization per feature | Different units/scales per target |
+
+## Integration with ML Workflows
+
+### With Flux.jl
+
+```julia
+using Flux
+
+# Normalize labels
+stats = compute_normalization_stats(Y_train)
+Y_train_norm = apply_normalization(Y_train, stats)
+
+# Create DataLoader
+dataloader = Flux.DataLoader((data=X_train, label=Y_train_norm), batchsize=32)
+
+# After training, denormalize predictions
+predictions_original = denormalize_labels(model_output, stats)
+```
+
+### Label Format Support
+
+This package works with your dataset tuple `(X, Y)` and focuses exclusively on transforming the labels `Y`:
+
+- **Vector labels**: `Y` is a vector for single-target regression
+- **Matrix labels**: `Y` is a matrix where `size(Y, 2) = n` (columns = data points) for multi-target regression
 
 ## Documentation
 
@@ -151,85 +169,15 @@ normalized = normalize_labels(weather_data; mode=:columnwise)
 - [**Examples**](https://kchu25.github.io/RealLabelNormalization.jl/dev/examples/): Comprehensive examples for various scenarios
 - [**API Reference**](https://kchu25.github.io/RealLabelNormalization.jl/dev/api/): Complete function documentation
 
-## Why RealLabelNormalization.jl?
-
-### Problem: Inconsistent Normalization in ML Pipelines
-
-```julia
-# Common mistake: computing statistics on entire dataset
-all_data = [train_data; test_data]
-normalized_all = (all_data .- mean(all_data)) ./ std(all_data)
-train_norm = normalized_all[1:length(train_data)]
-test_norm = normalized_all[length(train_data)+1:end]
-# This leads to data leakage and poor generalization!
-```
-
-### Solution: Proper Train/Test Separation
-
-```julia
-# Correct approach with RealLabelNormalization.jl
-stats = compute_normalization_stats(train_data)  # Only training data
-train_normalized = apply_normalization(train_data, stats)
-test_normalized = apply_normalization(test_data, stats)  # Same stats applied
-# Ensures no data leakage and proper generalization
-```
-
-## Normalization Methods
-
-| Method | Description | Use Case | Output Range |
-|--------|-------------|----------|--------------|
-| **Min-Max** | Scales to specified range | Known data bounds, neural networks | User-defined (default: [-1,1]) |
-| **Z-Score** | Zero mean, unit variance | Normally distributed data, linear models | Approximately [-3,3] |
-
-## Modes
-
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| **Global** | Single normalization across all features | Related measurements on same scale |
-| **Column-wise** | Independent normalization per feature | Different units/scales per target |
-
-## Advanced Features
-
-### Outlier Clipping
-
-```julia
-# Automatic outlier clipping (default: 1st-99th percentiles)
-labels = [1, 2, 3, 4, 5, 1000]  # 1000 is extreme outlier
-normalized = normalize_labels(labels)  # Outlier automatically clipped
-
-# Custom clipping percentiles
-normalized = normalize_labels(labels; clip_quantiles=(0.05, 0.95))
-
-# No clipping
-normalized = normalize_labels(labels; clip_quantiles=nothing)
-```
-
-### Custom Ranges
-
-```julia
-# Scale to [0, 1] instead of [-1, 1]
-normalized = normalize_labels(labels; range=(0, 1))
-
-# Scale to custom range
-normalized = normalize_labels(labels; range=(-2, 2))
-```
-
-## Performance
-
-RealLabelNormalization.jl is optimized for performance:
-
-- **Efficient algorithms**: Vectorized operations with minimal allocations
-- **Streaming support**: Process large datasets that don't fit in memory
-- **Multi-threading**: Automatic parallelization for large matrices
-- **Memory efficient**: In-place operations when possible
-
 ## Related Packages
 
 - [StatsBase.jl](https://github.com/JuliaStats/StatsBase.jl): General statistical functions
 - [MLJ.jl](https://github.com/alan-turing-institute/MLJ.jl): Machine learning framework with preprocessing
 - [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl): Machine learning utilities
 
-### Development Setup
+## Development
+
+### Setup
 
 ```julia
 # Clone the repository
@@ -264,8 +212,4 @@ If you use RealLabelNormalization.jl in your research, please cite:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
 
-- Inspired by scikit-learn's preprocessing module
-- Built with the Julia programming language ecosystem
-- Thanks to the Julia community for feedback and contributions
