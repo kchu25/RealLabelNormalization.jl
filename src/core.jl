@@ -101,7 +101,8 @@ function normalize_labels(labels::AbstractArray;
 end
 
 """
-    compute_normalization_stats(labels; method=:minmax, mode=:global, clip_quantiles=(0.01, 0.99))
+    compute_normalization_stats(labels; method=:minmax, mode=:global, 
+    range=(-1, 1), clip_quantiles=(0.01, 0.99))
 
 Compute normalization statistics from training data for later application to validation/test sets.
 

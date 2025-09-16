@@ -6,46 +6,63 @@
 [![Coverage](https://codecov.io/gh/kchu25/RealLabelNormalization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/kchu25/RealLabelNormalization.jl)
 
 
+
+
+
+
+# Motivation 
 Avoiding data leakage (computing stats on the training set only), clipping outliers, and handling NaNs isn’t hard — but it’s tedious, especially when you end up reinventing the same workflow for every dataset (often with tools like [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl)). This package provides robust normalization of real-valued labels for regression tasks with built-in outlier handling and NaN support, ensuring consistent, leak-free preprocessing across train/validation/test splits.
 
+# Overview
 
-## A quick way to understand what this package does:
+This package normalizes labels in your datasets for machine learning workflows. It works with your dataset tuple `(X, Y)` containing `n` **(data point, label)** pairs, focusing exclusively on transforming the **labels** `Y`.
 
-- Your dataset tuple `(X, Y)` consists of `n` (**data point, label**) pairs. This package only operates on the **labels** `Y`. 
-- Two cases for `Y`:
-    - **Scalar-valued labels:** `Y` is a vector.
-    - **Matrix-valued labels:** `Y` is a matrix, with the second dimension corresponding to data points, i.e.`size(Y,2) = n`.
+# Label Types
 
-This package normalizes the values in `Y`. Once normalized, you can feed them directly into a Flux DataLoader, e.g.
+This package handles two label formats:
+
+- **Scalar-valued labels:** `Y` is a vector.  
+- **Matrix-valued labels:** `Y` is a matrix where `size(Y, 2) = n` (second dimension corresponds to data points).
+
+# Normalization Process
+
+## Workflow Integration
+
+When working with train/validation/test splits — e.g., `(X_train, Y_train)`, `(X_valid, Y_valid)`, `(X_test, Y_test)` — the normalization statistics computed from the training data can be consistently applied to the validation and test labels. The transformations are applied in the following sequence:
+
+1. **Outlier clipping** (optional): Clamp extreme values using quantile bounds, e.g., `(0.01, 0.99)`.  
+2. **Normalization**: Apply a normalization method (`:minmax` or `:zscore`) to the labels.  
+   - For matrices: choose **columnwise** (`:columnwise`) or **global** (`:global`) normalization.  
+   - `NaN` values are automatically preserved.  
+   - Statistics are stored for consistent application to validation and test sets.
+
+### Examples
+
+**Vector labels with `:zscore` normalization:**
+
+```julia
+stats = compute_normalization_stats(Y_train; method=:zscore, clip_quantiles=(0.01, 0.99))
+Y_train_normalized = apply_normalization(Y_train, stats)
+Y_valid_normalized = apply_normalization(Y_valid, stats)
+```
+**Matrix labels with min-max normalization in range `(-1,1)` applied columnwise:
+```julia
+stats = compute_normalization_stats(Y_train; method=:minmax, mode=:columnwise, 
+    range=(-1, 1), clip_quantiles=(0.01, 0.99))
+Y_train_normalized = apply_normalization(Y_train, stats)
+Y_valid_normalized = apply_normalization(test_labels, stats)
+```
+
+## With Flux
+
+After normalization, labels can be fed directly into a Flux DataLoader:
 
 ```julia
 using Flux
 dataloader = Flux.DataLoader((data=X, label=Y))
 ```
 
-Assume you have train, valid, and test datasets, i.e. `(X_train, Y_train), (X_valid, Y_valid), (X_test, Y_test)`.
-
-The normalization procedure performs the following operations, in order:
-1. **(Optional) Clip outliers:** Specify the quantiles as a 2-tuple, e.g.`(0.01, 0.99)`, to clamp extreme values.  
-2. **Apply normalization** (e.g., z-score) to the labels.  
-   - When `Y` is a matrix, normalization can be applied **columnwise** (`:columnwise`) or **as a whole** (`:global`).  
-   - `NaN` values are automatically skipped and preserved. 
-   - The normalization statistics are stored and can be applied to validation or test labels (e.g., `Y_valid`, `Y_test`).
-
-
-
-
-## Features
-
-- **Multiple normalization methods**: Min-max and Z-score normalization
-- **Flexible normalization modes**: Global or column-wise normalization for multi-target regression
-- **Robust outlier handling**: Configurable quantile-based clipping to handle extreme values
-- **NaN handling**: Preserves NaN values while computing statistics on valid data
-- **Consistent train/test normalization**: Save statistics from training data and apply to test data
-- **High performance**: Optimized for large datasets with minimal memory overhead
-- **Multi-target support**: Handle single or multiple regression targets seamlessly
-
-## Installation
+# Installation
 
 ```julia
 using Pkg
@@ -91,6 +108,7 @@ predictions_normalized = [-0.1, 0.3, 0.7]
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
+
 ### Handling Different Data Types
 
 ```julia
@@ -109,6 +127,17 @@ weather_data = [
 # Normalize each target independently
 normalized = normalize_labels(weather_data; mode=:columnwise)
 ```
+
+## Features
+
+- **Multiple normalization methods**: Min-max and Z-score normalization
+- **Flexible normalization modes**: Global or column-wise normalization for multi-target regression
+- **Robust outlier handling**: Configurable quantile-based clipping to handle extreme values
+- **NaN handling**: Preserves NaN values while computing statistics on valid data
+- **Consistent train/test normalization**: Save statistics from training data and apply to test data
+- **High performance**: Optimized for large datasets with minimal memory overhead
+- **Multi-target support**: Handle single or multiple regression targets seamlessly
+
 
 ## Documentation
 
