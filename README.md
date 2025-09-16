@@ -22,7 +22,7 @@ This package normalizes labels in your datasets for machine learning workflows. 
 This package handles two label formats:
 
 - **Scalar-valued labels:** `Y` is a vector.  
-- **Matrix-valued labels:** `Y` is a matrix where `size(Y, 2) = n` (second dimension corresponds to data points).
+- **Matrix-valued labels:** `Y` is a matrix where `size(Y, 2) = n` (second dimension corresponds to the number of data points).
 
 # Normalization Process
 
