@@ -6,8 +6,14 @@
 [![Coverage](https://codecov.io/gh/kchu25/RealLabelNormalization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/kchu25/RealLabelNormalization.jl)
 
 
+## Contents
 
-
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Key Use Cases](#key-use-cases)
+- [Features](#features)
+- [Documentation](#documentation)
+- [Why This Package?](#why-reallabelnormalizationjl)
 
 
 # Motivation 
