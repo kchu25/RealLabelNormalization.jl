@@ -7,7 +7,19 @@
 
 
 Avoiding data leakage (computing stats on the training set only), clipping outliers, and handling NaNs isn’t hard — but it’s tedious, especially when you end up reinventing the same workflow for every dataset (often with tools like [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl)). This package provides robust normalization of real-valued labels for regression tasks with built-in outlier handling and NaN support, ensuring consistent, leak-free preprocessing across train/validation/test splits.
+## A quick way to understand what this package does:
 
+- Your dataset `(X, Y)` consists of `n` (**data point, label**) pairs. This package only operates on the **labels** (`Y`). 
+- Two cases for `Y`:
+    - **Scalar-valued labels:** `Y` is a vector.
+    - **Matrix-valued labels:** `Y` is a matrix, with the second dimension corresponding to data points (`size(Y,2) = n`).
+
+This package normalizes the values in `Y`. Once normalized, you can feed them directly into a Flux DataLoader, e.g.
+
+```julia
+using Flux
+dataloader = Flux.DataLoader((data=X, label=Y))
+```
 
 ## Features
 
