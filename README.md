@@ -11,7 +11,7 @@ Avoiding data leakage (computing stats on the training set only), clipping outli
 
 ## A quick way to understand what this package does:
 
-- Your dataset `(X, Y)` consists of `n` (**data point, label**) pairs. This package only operates on the **labels** (`Y`). 
+- Your dataset tuple `(X, Y)` consists of `n` (**data point, label**) pairs. This package only operates on the **labels** `Y`. 
 - Two cases for `Y`:
     - **Scalar-valued labels:** `Y` is a vector.
     - **Matrix-valued labels:** `Y` is a matrix, with the second dimension corresponding to data points (`size(Y,2) = n`).
