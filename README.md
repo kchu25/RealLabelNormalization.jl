@@ -15,14 +15,14 @@ Avoiding data leakage (computing stats on the training set only), clipping outli
 
 # Overview
 
-This package normalizes labels in your datasets for machine learning workflows. It works with your dataset tuple `(X, Y)` containing `n` **(data point, label)** pairs, focusing exclusively on transforming the **labels** `Y`.
+This package normalizes labels in your datasets for machine learning workflows. It works with your dataset tuple `(X, Y)` containing `n` (data point, label) pairs, focusing exclusively on transforming the labels `Y`.
 
 # Label Types
 
 This package handles two label formats:
 
-- **Scalar-valued labels:** `Y` is a vector.  
-- **Matrix-valued labels:** `Y` is a matrix where `size(Y, 2) = n` (second dimension corresponds to the number of data points).
+- Scalar-valued labels: `Y` is a vector.  
+- Matrix-valued labels: `Y` is a matrix where `size(Y, 2) = n` (second dimension corresponds to the number of data points).
 
 # Normalization Process
 
@@ -30,22 +30,22 @@ This package handles two label formats:
 
 When working with train/validation/test splits — e.g., `(X_train, Y_train)`, `(X_valid, Y_valid)`, `(X_test, Y_test)` — the normalization statistics computed from the training data can be consistently applied to the validation and test labels. The transformations are applied in the following sequence:
 
-1. **Outlier clipping** (optional): Clamp extreme values using quantile bounds, e.g., `(0.01, 0.99)`.  
-2. **Normalization**: Apply a normalization method (`:minmax` or `:zscore`) to the labels.  
+1. Outlier clipping (optional): Clamp extreme values using quantile bounds, e.g., `(0.01, 0.99)`.  
+2. Normalization: Apply a normalization method (`:minmax` or `:zscore`) to the labels.  
    - For matrices: choose **columnwise** (`:columnwise`) or **global** (`:global`) normalization.  
    - `NaN` values are automatically preserved.  
    - Statistics are stored for consistent application to validation and test sets.
 
 ### Examples
 
-**Vector labels with `:zscore` normalization:**
+Vector labels with `:zscore` normalization:
 
 ```julia
 stats = compute_normalization_stats(Y_train; method=:zscore, clip_quantiles=(0.01, 0.99))
 Y_train_normalized = apply_normalization(Y_train, stats)
 Y_valid_normalized = apply_normalization(Y_valid, stats)
 ```
-**Matrix labels with min-max normalization in range `(-1,1)` applied columnwise:
+Matrix labels with min-max normalization in range `(-1,1)` applied columnwise:
 ```julia
 stats = compute_normalization_stats(Y_train; method=:minmax, mode=:columnwise, 
     range=(-1, 1), clip_quantiles=(0.01, 0.99))
