@@ -60,9 +60,8 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 - **Leak-free workflows**: Compute stats on training data, apply to validation/test
 - **Automatic outlier handling**: Configurable quantile-based clipping (default: 1st-99th percentiles)
 - **NaN preservation**: Statistics computed on valid data only, NaNs preserved in output
-- **Multi-target support**: Handle vector or matrix labels with global/column-wise modes
+- **Multi-target support**: Handle scalar- or vector-valued labels with global/column-wise modes
 - **Two normalization methods**: Min-max (configurable range) and Z-score
-- **High performance**: Optimized for large datasets with minimal memory overhead
 
 ## Usage Patterns
 
@@ -93,7 +92,7 @@ stats = compute_normalization_stats(train_labels)
 # Step 2: Apply to training data
 train_normalized = apply_normalization(train_labels, stats)
 
-# Step 3: Apply same statistics to test data (crucial for consistency!)
+# Step 3: Apply same statistics to test data (crucial for consistency)
 test_labels = [2.1, 3.9, 4.5]
 test_normalized = apply_normalization(test_labels, stats)
 
