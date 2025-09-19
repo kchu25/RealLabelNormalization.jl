@@ -9,11 +9,14 @@ function _clip_outliers(labels::AbstractVector, clip_quantiles::Tuple{Real,Real}
         @warn "All values are NaN, cannot clip outliers"
         return labels
     end
+    T = eltype(labels)
     lower_q, upper_q = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+    lower_q, upper_q = convert(T, lower_q), convert(T, upper_q)
     return clamp.(labels, lower_q, upper_q)
 end
 
 function _clip_outliers(labels::AbstractMatrix, clip_quantiles::Tuple{Real,Real}, mode::Symbol)
+    T = eltype(labels)
     if mode == :global
         # Clip based on global quantiles
         valid_data = filter(!isnan, vec(labels))
@@ -22,11 +25,12 @@ function _clip_outliers(labels::AbstractMatrix, clip_quantiles::Tuple{Real,Real}
             return labels
         end
         lower_q, upper_q = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+        lower_q, upper_q = convert(T, lower_q), convert(T, upper_q)
         return clamp.(labels, lower_q, upper_q)
     else # :columnwise
         # Clip each column independently
         clipped = similar(labels)
-        for col in axes(labels, 2) # for col in
+        for col in axes(labels, 2)
             column_data = @view labels[:, col]
             valid_data = filter(!isnan, column_data)
             if isempty(valid_data)
@@ -34,6 +38,7 @@ function _clip_outliers(labels::AbstractMatrix, clip_quantiles::Tuple{Real,Real}
                 clipped[:, col] = column_data
             else
                 lower_q, upper_q = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+                lower_q, upper_q = convert(T, lower_q), convert(T, upper_q)
                 clipped[:, col] = clamp.(column_data, lower_q, upper_q)
             end
         end

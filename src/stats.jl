@@ -26,18 +26,21 @@ function _compute_stats_vector(
     range::Tuple{Real,Real}, 
     clip_quantiles::Union{Nothing,Tuple{Real,Real}}
 )
+    T = eltype(labels)
     # Compute clip bounds if clipping is requested
     clip_bounds = nothing
     if clip_quantiles !== nothing
         valid_data = filter(!isnan, labels)
         if !isempty(valid_data)
             lower_bound, upper_bound = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+            lower_bound, upper_bound = convert(T, lower_bound), convert(T, upper_bound)
             clip_bounds = (lower=lower_bound, upper=upper_bound)
         end
     end
     
     if method == :minmax
         min_val, max_val = _safe_extrema(labels)
+        min_val, max_val = convert(T, min_val), convert(T, max_val)
         return (
             method=:minmax, 
             min_val=min_val, 
@@ -49,6 +52,7 @@ function _compute_stats_vector(
         )
     else # :zscore
         mu, sigma = _safe_mean_std(labels)
+        mu, sigma = convert(T, mu), convert(T, sigma)
         return (
             method=:zscore, 
             mean=mu, 
@@ -66,18 +70,21 @@ function _compute_stats_global(
     range::Tuple{Real,Real}, 
     clip_quantiles::Union{Nothing,Tuple{Real,Real}}
 )
+    T = eltype(labels)
     # Compute clip bounds if clipping is requested
     clip_bounds = nothing
     if clip_quantiles !== nothing
         valid_data = filter(!isnan, vec(labels))
         if !isempty(valid_data)
             lower_bound, upper_bound = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+            lower_bound, upper_bound = convert(T, lower_bound), convert(T, upper_bound)
             clip_bounds = (lower=lower_bound, upper=upper_bound)
         end
     end
     
     if method == :minmax
         min_val, max_val = _safe_extrema(labels)
+        min_val, max_val = convert(T, min_val), convert(T, max_val)
         return (
             method=:minmax, 
             min_val=min_val, 
@@ -89,6 +96,7 @@ function _compute_stats_global(
         )
     else # :zscore
         mu, sigma = _safe_mean_std(labels)
+        mu, sigma = convert(T, mu), convert(T, sigma)
         return (
             method=:zscore, 
             mean=mu, 
@@ -107,7 +115,7 @@ function _compute_stats_columnwise(
     clip_quantiles::Union{Nothing,Tuple{Real,Real}}
 )
     n_cols = size(labels, 2)
-    
+    T = eltype(labels)
     # Compute clip bounds for each column if clipping is requested
     clip_bounds = nothing
     if clip_quantiles !== nothing
@@ -116,6 +124,7 @@ function _compute_stats_columnwise(
             valid_data = filter(!isnan, labels[:, col])
             if !isempty(valid_data)
                 lower_bound, upper_bound = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+                lower_bound, upper_bound = convert(T, lower_bound), convert(T, upper_bound)
                 push!(column_bounds, (lower=lower_bound, upper=upper_bound))
             else
                 push!(column_bounds, (lower=NaN, upper=NaN))
@@ -125,10 +134,11 @@ function _compute_stats_columnwise(
     end
     
     if method == :minmax
-        min_vals = Float64[]
-        max_vals = Float64[]
+        min_vals = T[]
+        max_vals = T[]
         for col in 1:n_cols
             min_val, max_val = _safe_extrema(labels[:, col])
+            min_val, max_val = convert(T, min_val), convert(T, max_val)
             push!(min_vals, min_val)
             push!(max_vals, max_val)
         end
@@ -142,10 +152,11 @@ function _compute_stats_columnwise(
             clip_bounds=clip_bounds
         )
     else # :zscore
-        means = Float64[]
-        stds = Float64[]
+        means = T[]
+        stds = T[]
         for col in 1:n_cols
             mu, sigma = _safe_mean_std(labels[:, col])
+            mu, sigma = convert(T, mu), convert(T, sigma)
             push!(means, mu)
             push!(stds, sigma)
         end
