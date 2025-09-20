@@ -81,7 +81,7 @@ function _apply_training_clip_bounds(labels::AbstractArray, stats::NamedTuple)
             return labels
         end
         return clamp.(labels, lower_bound, upper_bound)
-    else # :columnwise
+    elseif stats.mode == :columnwise
         # Per-column bounds
         clipped = similar(labels)
         for col in axes(labels, 2)
@@ -100,5 +100,26 @@ function _apply_training_clip_bounds(labels::AbstractArray, stats::NamedTuple)
             end
         end
         return clipped
+    elseif stats.mode == :rowwise
+        # Per-row bounds
+        clipped = similar(labels)
+        for row in axes(labels, 1)
+            if row <= length(stats.clip_bounds)
+                lower_bound = stats.clip_bounds[row].lower
+                upper_bound = stats.clip_bounds[row].upper
+                if isnan(lower_bound) || isnan(upper_bound)
+                    @warn "Row $row training clip bounds contain NaN, cannot clip"
+                    clipped[row, :] = labels[row, :]
+                else
+                    clipped[row, :] = clamp.(labels[row, :], lower_bound, upper_bound)
+                end
+            else
+                @warn "Row $row has no training clip bounds, cannot clip"
+                clipped[row, :] = labels[row, :]
+            end
+        end
+        return clipped
+    else
+        error("Unsupported mode for _apply_training_clip_bounds: $(stats.mode)")
     end
 end
