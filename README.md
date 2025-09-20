@@ -129,6 +129,28 @@ train_normalized = apply_normalization(weather_train, stats)
 test_normalized = apply_normalization(weather_test, stats)
 ```
 
+### Row-wise Normalization
+
+```julia
+# Each row is normalized independently (useful for time series, per-sample normalization, etc.)
+mat = [1.0 2.0 3.0;
+       10.0 20.0 30.0;
+       -1.0 0.0 1.0]
+
+# Min-max row-wise normalization (each row mapped to [-1, 1])
+stats_row = compute_normalization_stats(mat; mode=:rowwise)
+normalized_row = apply_normalization(mat, stats_row)
+
+# Z-score row-wise normalization (each row mean≈0, std≈1)
+stats_row_z = compute_normalization_stats(mat; mode=:rowwise, method=:zscore)
+normalized_row_z = apply_normalization(mat, stats_row_z)
+
+# NaN handling: NaNs are preserved, valid values normalized
+mat_nan = [1.0 NaN 3.0; 10.0 20.0 NaN]
+stats_nan = compute_normalization_stats(mat_nan; mode=:rowwise)
+normalized_nan = apply_normalization(mat_nan, stats_nan)
+```
+
 ### Other Options
 
 ```julia
@@ -157,6 +179,7 @@ normalized = normalize_labels(labels_with_nan)  # NaN preserved
 |------|-------------|----------|
 | **Global** | Single normalization across all features | Related measurements on same scale |
 | **Column-wise** | Independent normalization per feature | Different units/scales per target |
+| **Row-wise** | Independent normalization per sample/row | Time series, per-sample normalization |
 
 ## Integration with ML Workflows
 
