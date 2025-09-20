@@ -18,6 +18,7 @@ in statistical computations and preserving them in the output.
 - `mode::Symbol`: Normalization scope
   - `:global`: Normalize across all values (default)
   - `:columnwise`: Normalize each column independently
+  - `:rowwise`: Normalize each row independently
 - `clip_quantiles::Union{Nothing,Tuple{Real,Real}}`: Percentile values (0-1) for outlier clipping before normalization
   - `(0.01, 0.99)`: Clip to 1st-99th percentiles (default)
   - `(0.05, 0.95)`: Clip to 5th-95th percentiles (more aggressive)
@@ -51,29 +52,29 @@ labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0; 1000.0 5.0]  # Outlier 
 # Global normalization with clipping
 normalized = normalize_labels(labels_matrix; mode=:global)
 
-# Column-wise normalization with clipping (each target independently)
+# Column-wise normalization with clipping 
 normalized = normalize_labels(labels_matrix; mode=:columnwise)
+
+# Row-wise normalization with clipping
+normalized = normalize_labels(labels_matrix; mode=:rowwise)
 ```
 """
 function normalize_labels(labels::AbstractArray; 
                          method::Symbol=:minmax, 
                          range::Tuple{Real,Real}=(-1, 1),
                          mode::Symbol=:global,
-                         clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99))
-    
+                         clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
+                         warn_on_nan::Bool=true)
     # Input validation
     if method ∉ [:minmax, :zscore]
         throw(ArgumentError("method must be :minmax or :zscore, got :$method"))
     end
-    
-    if mode ∉ [:global, :columnwise]
-        throw(ArgumentError("mode must be :global or :columnwise, got :$mode"))
+    if mode ∉ [:global, :columnwise, :rowwise]
+        throw(ArgumentError("mode must be :global, :columnwise, or :rowwise, got :$mode"))
     end
-    
     if method == :zscore && range != (-1, 1)
         @warn "range parameter input $range is ignored for z-score normalization (produces mean=0, std=1, e.g. ~[-3,3] range)"
     end
-    
     if clip_quantiles !== nothing
         if length(clip_quantiles) != 2 || clip_quantiles[1] >= clip_quantiles[2]
             throw(ArgumentError("clip_quantiles must be (lower, upper) with lower < upper"))
@@ -82,18 +83,18 @@ function normalize_labels(labels::AbstractArray;
             throw(ArgumentError("clip_quantiles must be between 0 and 1"))
         end
     end
-    
     # Apply clipping if requested
     clipped_labels = clip_quantiles === nothing ? labels : _clip_outliers(labels, clip_quantiles, mode)
-    
     # Handle different input types
     if ndims(clipped_labels) == 1
-        return _normalize_vector(clipped_labels, method, range)
+        return _normalize_vector(clipped_labels, method, range; warn_on_nan=warn_on_nan)
     elseif ndims(clipped_labels) == 2
         if mode == :global
-            return _normalize_global(clipped_labels, method, range)
-        else # :columnwise
-            return _normalize_columnwise(clipped_labels, method, range)
+            return _normalize_global(clipped_labels, method, range; warn_on_nan=warn_on_nan)
+        elseif mode == :columnwise
+            return _normalize_columnwise(clipped_labels, method, range; warn_on_nan=warn_on_nan)
+        else # :rowwise
+            return _normalize_rowwise(clipped_labels, method, range; warn_on_nan=warn_on_nan)
         end
     else
         throw(ArgumentError("labels must be 1D or 2D array, got $(ndims(clipped_labels))D"))
@@ -118,6 +119,7 @@ Compute normalization statistics from training data for later application to val
 - `mode::Symbol`: Normalization scope
   - `:global`: Normalize across all values (default)
   - `:columnwise`: Normalize each column independently
+  - `:rowwise`: Normalize each row independently
 - `clip_quantiles::Union{Nothing,Tuple{Real,Real}}`: Percentile values (0-1) for outlier clipping before normalization
   - `(0.01, 0.99)`: Clip to 1st-99th percentiles (default)
   - `(0.05, 0.95)`: Clip to 5th-95th percentiles (more aggressive)
@@ -140,18 +142,19 @@ function compute_normalization_stats(labels::AbstractArray;
                                    method::Symbol=:minmax,
                                    range::Tuple{Real,Real}=(-1, 1),
                                    mode::Symbol=:global,
-                                   clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99))
-    
+                                   clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
+                                   warn_on_nan::Bool=true)
     # Apply clipping if requested
     clipped_labels = clip_quantiles === nothing ? labels : _clip_outliers(labels, clip_quantiles, mode)
-    
     if ndims(clipped_labels) == 1
-        return _compute_stats_vector(clipped_labels, method, range, clip_quantiles)
+        return _compute_stats_vector(clipped_labels, method, range, clip_quantiles; warn_on_nan=warn_on_nan)
     elseif ndims(clipped_labels) == 2
         if mode == :global
-            return _compute_stats_global(clipped_labels, method, range, clip_quantiles)
-        else # :columnwise
-            return _compute_stats_columnwise(clipped_labels, method, range, clip_quantiles)
+            return _compute_stats_global(clipped_labels, method, range, clip_quantiles; warn_on_nan=warn_on_nan)
+        elseif mode == :columnwise
+            return _compute_stats_columnwise(clipped_labels, method, range, clip_quantiles; warn_on_nan=warn_on_nan)
+        else # :rowwise
+            return _compute_stats_rowwise(clipped_labels, method, range, clip_quantiles; warn_on_nan=warn_on_nan)
         end
     else
         throw(ArgumentError("labels must be 1D or 2D array, got $(ndims(clipped_labels))D"))

@@ -24,7 +24,8 @@ function _compute_stats_vector(
     labels::AbstractVector, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}}
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    warn_on_nan::Bool=true
 )
     T = eltype(labels)
     # Compute clip bounds if clipping is requested
@@ -39,7 +40,7 @@ function _compute_stats_vector(
     end
     
     if method == :minmax
-        min_val, max_val = _safe_extrema(labels)
+        min_val, max_val = _safe_extrema(labels; warn_on_nan=warn_on_nan)
         min_val, max_val = convert(T, min_val), convert(T, max_val)
         return (
             method=:minmax, 
@@ -51,7 +52,7 @@ function _compute_stats_vector(
             clip_bounds=clip_bounds
         )
     else # :zscore
-        mu, sigma = _safe_mean_std(labels)
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         mu, sigma = convert(T, mu), convert(T, sigma)
         return (
             method=:zscore, 
@@ -68,7 +69,8 @@ function _compute_stats_global(
     labels::AbstractMatrix, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}}
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    warn_on_nan::Bool=true
 )
     T = eltype(labels)
     # Compute clip bounds if clipping is requested
@@ -83,7 +85,7 @@ function _compute_stats_global(
     end
     
     if method == :minmax
-        min_val, max_val = _safe_extrema(labels)
+        min_val, max_val = _safe_extrema(labels; warn_on_nan=warn_on_nan)
         min_val, max_val = convert(T, min_val), convert(T, max_val)
         return (
             method=:minmax, 
@@ -95,7 +97,7 @@ function _compute_stats_global(
             clip_bounds=clip_bounds
         )
     else # :zscore
-        mu, sigma = _safe_mean_std(labels)
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         mu, sigma = convert(T, mu), convert(T, sigma)
         return (
             method=:zscore, 
@@ -112,7 +114,8 @@ function _compute_stats_columnwise(
     labels::AbstractMatrix, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}}
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    warn_on_nan::Bool=true
 )
     n_cols = size(labels, 2)
     T = eltype(labels)
@@ -137,7 +140,7 @@ function _compute_stats_columnwise(
         min_vals = T[]
         max_vals = T[]
         for col in 1:n_cols
-            min_val, max_val = _safe_extrema(labels[:, col])
+            min_val, max_val = _safe_extrema(labels[:, col]; warn_on_nan=warn_on_nan)
             min_val, max_val = convert(T, min_val), convert(T, max_val)
             push!(min_vals, min_val)
             push!(max_vals, max_val)
@@ -155,7 +158,7 @@ function _compute_stats_columnwise(
         means = T[]
         stds = T[]
         for col in 1:n_cols
-            mu, sigma = _safe_mean_std(labels[:, col])
+            mu, sigma = _safe_mean_std(labels[:, col]; warn_on_nan=warn_on_nan)
             mu, sigma = convert(T, mu), convert(T, sigma)
             push!(means, mu)
             push!(stds, sigma)
@@ -165,6 +168,69 @@ function _compute_stats_columnwise(
             means=means, 
             stds=stds, 
             mode=:columnwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds
+        )
+    end
+end
+
+function _compute_stats_rowwise(
+    labels::AbstractMatrix, 
+    method::Symbol, 
+    range::Tuple{Real,Real}, 
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    warn_on_nan::Bool=true
+)
+    n_rows = size(labels, 1)
+    T = eltype(labels)
+    # Compute clip bounds for each row if clipping is requested
+    clip_bounds = nothing
+    if clip_quantiles !== nothing
+        row_bounds = []
+        for row in 1:n_rows
+            valid_data = filter(!isnan, labels[row, :])
+            if !isempty(valid_data)
+                lower_bound, upper_bound = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+                lower_bound, upper_bound = convert(T, lower_bound), convert(T, upper_bound)
+                push!(row_bounds, (lower=lower_bound, upper=upper_bound))
+            else
+                push!(row_bounds, (lower=NaN, upper=NaN))
+            end
+        end
+        clip_bounds = row_bounds
+    end
+    if method == :minmax
+        min_vals = T[]
+        max_vals = T[]
+        for row in 1:n_rows
+            min_val, max_val = _safe_extrema(labels[row, :]; warn_on_nan=warn_on_nan)
+            min_val, max_val = convert(T, min_val), convert(T, max_val)
+            push!(min_vals, min_val)
+            push!(max_vals, max_val)
+        end
+        return (
+            method=:minmax, 
+            min_vals=min_vals, 
+            max_vals=max_vals, 
+            range=range, 
+            mode=:rowwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds
+        )
+    else # :zscore
+        means = T[]
+        stds = T[]
+        for row in 1:n_rows
+            mu, sigma = _safe_mean_std(labels[row, :]; warn_on_nan=warn_on_nan)
+            mu, sigma = convert(T, mu), convert(T, sigma)
+            push!(means, mu)
+            push!(stds, sigma)
+        end
+        return (
+            method=:zscore, 
+            means=means, 
+            stds=stds, 
+            mode=:rowwise, 
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
