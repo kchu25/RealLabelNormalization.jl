@@ -27,7 +27,7 @@ function _clip_outliers(labels::AbstractMatrix, clip_quantiles::Tuple{Real,Real}
         lower_q, upper_q = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
         lower_q, upper_q = convert(T, lower_q), convert(T, upper_q)
         return clamp.(labels, lower_q, upper_q)
-    else # :columnwise
+    elseif mode == :columnwise
         # Clip each column independently
         clipped = similar(labels)
         for col in axes(labels, 2)
@@ -43,6 +43,24 @@ function _clip_outliers(labels::AbstractMatrix, clip_quantiles::Tuple{Real,Real}
             end
         end
         return clipped
+    elseif mode == :rowwise
+        # Clip each row independently
+        clipped = similar(labels)
+        for row in axes(labels, 1)
+            row_data = @view labels[row, :]
+            valid_data = filter(!isnan, row_data)
+            if isempty(valid_data)
+                @warn "Row $row has all NaN values, cannot clip outliers"
+                clipped[row, :] = row_data
+            else
+                lower_q, upper_q = quantile(valid_data, [clip_quantiles[1], clip_quantiles[2]])
+                lower_q, upper_q = convert(T, lower_q), convert(T, upper_q)
+                clipped[row, :] = clamp.(row_data, lower_q, upper_q)
+            end
+        end
+        return clipped
+    else
+        error("Unsupported mode for _clip_outliers: $mode")
     end
 end
 
