@@ -159,7 +159,6 @@ normalize_labels(labels_matrix; mode=:columnwise)
 labels_with_nan = [1.0, 2.0, NaN, 4.0, 5.0]
 normalize_labels(labels_with_nan)
 
-
 ## Methods and Modes
 
 | Method | Description | Use Case | Output Range |
