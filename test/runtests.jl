@@ -216,7 +216,6 @@ using Statistics
         end
     end
 
-
     @testset "Outlier Clipping Tests" begin
         # Test vector clipping
         data = [1.0, 2.0, 3.0, 4.0, 5.0, 100.0]
