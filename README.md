@@ -41,7 +41,7 @@ using RealLabelNormalization
 
 # Step 1: Compute normalization statistics from training data ONLY
 train_labels = [1.5, 2.3, 4.1, 3.7, 5.2, 100.0]  # Contains outlier
-stats = compute_normalization_stats(train_labels)
+stats = compute_normalization_stats(train_labels; method=:zscore, clip_quantiles=(0.01, 0.99))
 
 # Step 2: Apply to training data
 train_normalized = apply_normalization(train_labels, stats)
@@ -65,29 +65,13 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 
 ## Usage Patterns
 
-### Convenience Functions
+###  scalar-valued Regression
 
 ```julia
-using RealLabelNormalization
 
-# Basic min-max normalization to [-1, 1] with outlier clipping
-labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]  # 100.0 is an outlier
-normalized = normalize_labels(labels)
-
-# Z-score normalization
-normalized = normalize_labels(labels; method=:zscore)
-
-# Multi-target normalization (matrix input)
-labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0]
-normalized = normalize_labels(labels_matrix; mode=:columnwise)
-```
-
-### Machine Learning
-
-```julia
 # Step 1: Compute normalization statistics from training data ONLY
 train_labels = [1.5, 2.3, 4.1, 3.7, 5.2, 100.0]  # Contains outlier
-stats = compute_normalization_stats(train_labels)
+stats = compute_normalization_stats(train_labels; method=:minmax, range=(-1, 1), clip_quantiles=(0.01, 0.99))
 
 # Step 2: Apply to training data
 train_normalized = apply_normalization(train_labels, stats)
@@ -101,7 +85,7 @@ predictions_normalized = [-0.1, 0.3, 0.7]
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
-### Vector-valued Regression
+## Vector-valued Regression with column-wise normalization
 
 ```julia
 # Matrix labels where each column is a different target
@@ -129,7 +113,7 @@ train_normalized = apply_normalization(weather_train, stats)
 test_normalized = apply_normalization(weather_test, stats)
 ```
 
-### Row-wise Normalization
+##  Vector-valued Regression with row-wise normalization
 
 ```julia
 # Each row is normalized independently (useful for time series, per-sample normalization, etc.)
@@ -150,23 +134,31 @@ mat_nan = [1.0 NaN 3.0; 10.0 20.0 NaN]
 stats_nan = compute_normalization_stats(mat_nan; mode=:rowwise)
 normalized_nan = apply_normalization(mat_nan, stats_nan)
 ```
+## Convenience Functions
 
-### Other Options
+labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]  # contains an outlier
 
-```julia
-# Custom clipping percentiles for extreme outliers
-normalized = normalize_labels(labels; clip_quantiles=(0.05, 0.95))
+### Basic min-max normalization to [-1, 1] with default outlier clipping
+normalize_labels(labels)
 
-# No clipping (not recommended for real data)
-normalized = normalize_labels(labels; clip_quantiles=nothing)
+### Z-score normalization
+normalize_labels(labels; method=:zscore)
 
-# Custom range for min-max normalization
-normalized = normalize_labels(labels; range=(0, 1))  # Scale to [0,1]
+### Custom clipping percentiles (more aggressive or less aggressive)
+normalize_labels(labels; clip_quantiles=(0.05, 0.95))
+normalize_labels(labels; clip_quantiles=nothing)   # disable clipping
 
-# Works seamlessly with NaN values
+# Custom scaling range
+normalize_labels(labels; range=(0, 1))             # scale to [0,1]
+
+### Multi-target labels (matrix input, each column normalized separately)
+labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0]
+normalize_labels(labels_matrix; mode=:columnwise)
+
+### Handles NaNs seamlessly
 labels_with_nan = [1.0, 2.0, NaN, 4.0, 5.0]
-normalized = normalize_labels(labels_with_nan)  # NaN preserved
-```
+normalize_labels(labels_with_nan)
+
 
 ## Methods and Modes
 
