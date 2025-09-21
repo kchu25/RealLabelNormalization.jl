@@ -143,12 +143,12 @@ test_norm = apply_normalization(test_with_nan, stats)    # NaNs preserved, same 
 
 ## Key Features
 
-- **🛡️ Prevents data leakage**: Stats computed from training data, applied consistently to val/test
-- **📊 Outlier handling**: Configurable quantile-based clipping (default: 1%-99%)
-- **🔢 NaN preservation**: Statistics skip NaNs, output preserves NaN positions
-- **🎯 Multi-target support**: Handle matrices with global/column/row-wise modes  
-- **🔄 Complete workflow**: Compute once, apply everywhere, denormalize predictions
-- **⚡ Simple API**: Three-step pattern for bulletproof normalization
+- **Prevents data leakage**: Stats computed from training data, applied consistently to val/test
+- **Outlier handling**: Configurable quantile-based clipping (default: 1%-99%)
+- **NaN preservation**: Statistics skip NaNs, output preserves NaN positions
+- **Multi-target support**: Handle matrices with global/column/row-wise modes  
+- **Complete workflow**: Compute once, apply everywhere, denormalize predictions
+- **Simple API**: Three-step pattern for bulletproof normalization
 
 ## Integration with ML Frameworks
 
