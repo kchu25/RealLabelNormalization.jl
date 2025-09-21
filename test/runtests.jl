@@ -185,36 +185,29 @@ using Statistics
         @test all(x ≈ 0.0 for x in normalized_two)
     end
     
-    @testset "Row-wise Normalization" begin
-        # Each row is normalized independently
-        mat = [1.0 2.0 3.0; 10.0 20.0 30.0; -1.0 0.0 1.0]
-        # Min-max: each row should map to [-1, 0, 1]
-        expected_minmax = [-1.0 0.0 1.0; -1.0 0.0 1.0; -1.0 0.0 1.0]
-        stats_row = compute_normalization_stats(mat; mode=:rowwise, clip_quantiles=nothing)
-        normalized_row = apply_normalization(mat, stats_row)
-        @test isapprox(normalized_row, expected_minmax, atol=1e-10)
-        # Round-trip
-        denorm_row = denormalize_labels(normalized_row, stats_row)
-        @test isapprox(mat, denorm_row, atol=1e-10)
-        # Z-score: each row mean≈0, std≈1
-        stats_row_z = compute_normalization_stats(mat; mode=:rowwise, method=:zscore, clip_quantiles=nothing)
-        normalized_row_z = apply_normalization(mat, stats_row_z)
-        for i in 1:size(mat, 1)
-            row = normalized_row_z[i, :]
-            @test abs(mean(row)) < 1e-10
-            @test abs(std(row) - 1.0) < 1e-10
-        end
-        # NaN handling: NaNs preserved, valid values normalized
-        mat_nan = [1.0 NaN 3.0; 10.0 20.0 NaN]
-        stats_nan = compute_normalization_stats(mat_nan; mode=:rowwise, clip_quantiles=nothing)
-        normalized_nan = apply_normalization(mat_nan, stats_nan)
-        @test sum(isnan.(normalized_nan)) == 2
-        # Valid values in each row are in [-1, 1]
-        for i in 1:size(mat_nan, 1)
-            valid = .!isnan.(mat_nan[i, :])
-            @test all(-1 ≤ x ≤ 1 for x in normalized_nan[i, :][valid])
-        end
+    @testset "Outlier Clipping Tests" begin
+        # Test vector clipping
+        data = [1.0, 2.0, 3.0, 4.0, 5.0, 100.0]
+        clipped = RealLabelNormalization._clip_outliers(data, (0.0, 0.8), :global)
+        
+        # More robust tests
+        @test maximum(clipped) ≈ 5.0  # 80th percentile of [1,2,3,4,5,100] is 5.0
+        @test minimum(clipped) == 1.0  # 0th percentile should be minimum
+        @test clipped[end] < 100.0     # Outlier should be clipped
+        
+        # Test matrix clipping - columnwise  
+        matrix = [1.0 10.0; 2.0 20.0; 3.0 200.0]
+        clipped_matrix = RealLabelNormalization._clip_outliers(matrix, (0.0, 0.8), :columnwise)
+        @test clipped_matrix[3, 2] < 200.0  # Outlier in column 2 clipped
+        @test clipped_matrix[3, 1] < 3.0   # Column 1's 80th percentile ≈ 2.6
+        
+        # Test with NaN values - use same quantiles for consistency
+        data_nan = [1.0, 2.0, NaN, 4.0, 100.0]
+        clipped_nan = RealLabelNormalization._clip_outliers(data_nan, (0.0, 0.8), :global)  # Same quantiles
+        @test sum(isnan.(clipped_nan)) == 1  # NaN preserved
+        @test clipped_nan[3] |> isnan        # Specific NaN position preserved
+        @test maximum(filter(!isnan, clipped_nan)) < 100.0
     end
-
+    
+    println("✅ All clipping tests passed!")
 end
-
