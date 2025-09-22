@@ -90,7 +90,8 @@ function normalize_labels(labels::AbstractArray;
         return _normalize_vector(clipped_labels, method, range; warn_on_nan=warn_on_nan)
     elseif ndims(clipped_labels) == 2
         if mode == :global
-            return _normalize_global(clipped_labels, method, range; warn_on_nan=warn_on_nan)
+            return _normalize_global(clipped_labels, method, range; 
+            warn_on_nan=warn_on_nan)
         elseif mode == :columnwise
             return _normalize_columnwise(clipped_labels, method, range; warn_on_nan=warn_on_nan)
         else # :rowwise

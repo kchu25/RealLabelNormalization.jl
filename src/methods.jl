@@ -77,9 +77,9 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
     end
 end
 
-function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real})
+function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}; warn_on_nan::Bool=true)
     if method == :minmax
-        normalized_01, min_val, max_val = _minmax_normalize_to_01(labels)
+        normalized_01, min_val, max_val = _minmax_normalize_to_01(labels; warn_on_nan=warn_on_nan)
         if min_val == max_val
             @warn "All labels have the same value ($min_val), returning zeros"
             return normalized_01  # Already zeros from helper
@@ -87,7 +87,7 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
         # Scale from [0,1] to target range
         return _scale_to_range(normalized_01, range)
     else # :zscore
-        mu, sigma = _safe_mean_std(labels)
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         if isnan(mu) || isnan(sigma)
             @warn "Cannot compute z-score with NaN statistics, returning NaN array"
             return fill(NaN, size(labels))
@@ -100,13 +100,13 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
     end
 end
 
-function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real})
+function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}; warn_on_nan::Bool=true)
     normalized = similar(labels)
     
     for col in axes(labels, 2) # for col in
         column_data = @view labels[:, col]
         if method == :minmax
-            normalized_01, min_val, max_val = _minmax_normalize_to_01(column_data)
+            normalized_01, min_val, max_val = _minmax_normalize_to_01(column_data; warn_on_nan=warn_on_nan)
             if min_val == max_val
                 @warn "Column $col has constant values ($min_val), setting to zeros"
                 normalized[:, col] = normalized_01  # Already zeros from helper
@@ -114,7 +114,7 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
                 normalized[:, col] = _scale_to_range(normalized_01, range)
             end
         else # :zscore
-            mu, sigma = _safe_mean_std(column_data)
+            mu, sigma = _safe_mean_std(column_data; warn_on_nan=warn_on_nan)
             if isnan(mu) || isnan(sigma)
                 @warn "Column $col has all NaN values, setting to NaN"
                 normalized[:, col] .= NaN
