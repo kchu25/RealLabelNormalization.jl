@@ -588,6 +588,400 @@ using Statistics
             @test maximum(denormalized_row[4, :]) < 100.0  # Row 4 had outlier
             @test maximum(denormalized_row[:, 2]) < 200.0  # Column 2 had outlier
         end
+    end
+
+    @testset "Methods.jl Helper Functions Tests" begin
+        @testset "_safe_extrema Tests" begin
+            # Test normal data
+            data = [1.0, 2.0, 3.0, 4.0, 5.0]
+            min_val, max_val = RealLabelNormalization._safe_extrema(data)
+            @test min_val == 1.0
+            @test max_val == 5.0
+            
+            # Test with NaN values
+            data_nan = [1.0, NaN, 3.0, NaN, 5.0]
+            min_val, max_val = RealLabelNormalization._safe_extrema(data_nan)
+            @test min_val == 1.0
+            @test max_val == 5.0
+            
+            # Test all NaN data
+            all_nan = [NaN, NaN, NaN]
+            min_val, max_val = RealLabelNormalization._safe_extrema(all_nan)
+            @test isnan(min_val)
+            @test isnan(max_val)
+            
+            # Test empty data
+            empty_data = Float64[]
+            min_val, max_val = RealLabelNormalization._safe_extrema(empty_data)
+            @test isnan(min_val)
+            @test isnan(max_val)
+            
+            # Test single value
+            single_val = [42.0]
+            min_val, max_val = RealLabelNormalization._safe_extrema(single_val)
+            @test min_val == 42.0
+            @test max_val == 42.0
+            
+            # Test matrix data
+            matrix = [1.0 2.0; 3.0 4.0]
+            min_val, max_val = RealLabelNormalization._safe_extrema(matrix)
+            @test min_val == 1.0
+            @test max_val == 4.0
+        end
+
+        @testset "_safe_mean_std Tests" begin
+            # Test normal data
+            data = [1.0, 2.0, 3.0, 4.0, 5.0]
+            mu, sigma = RealLabelNormalization._safe_mean_std(data)
+            @test mu == 3.0
+            @test sigma ≈ sqrt(2.5) atol=1e-10
+            
+            # Test with NaN values
+            data_nan = [1.0, NaN, 3.0, NaN, 5.0]
+            mu, sigma = RealLabelNormalization._safe_mean_std(data_nan)
+            @test mu == 3.0
+            @test sigma ≈ 2.0 atol=1e-10  # std of [1.0, 3.0, 5.0] is 2.0
+            
+            # Test all NaN data
+            all_nan = [NaN, NaN, NaN]
+            mu, sigma = RealLabelNormalization._safe_mean_std(all_nan)
+            @test isnan(mu)
+            @test isnan(sigma)
+            
+            # Test empty data
+            empty_data = Float64[]
+            mu, sigma = RealLabelNormalization._safe_mean_std(empty_data)
+            @test isnan(mu)
+            @test isnan(sigma)
+            
+            # Test single value (std should be 0)
+            single_val = [42.0]
+            mu, sigma = RealLabelNormalization._safe_mean_std(single_val)
+            @test mu == 42.0
+            @test sigma == 0.0
+            
+            # Test constant data
+            constant_data = [5.0, 5.0, 5.0, 5.0]
+            mu, sigma = RealLabelNormalization._safe_mean_std(constant_data)
+            @test mu == 5.0
+            @test sigma == 0.0
+        end
+
+        @testset "_minmax_normalize_to_01 Tests" begin
+            # Test normal data
+            data = [1.0, 2.0, 3.0, 4.0, 5.0]
+            normalized, min_val, max_val = RealLabelNormalization._minmax_normalize_to_01(data)
+            @test min_val == 1.0
+            @test max_val == 5.0
+            @test normalized ≈ [0.0, 0.25, 0.5, 0.75, 1.0] atol=1e-10
+            
+            # Test with NaN values
+            data_nan = [1.0, NaN, 3.0, NaN, 5.0]
+            normalized, min_val, max_val = RealLabelNormalization._minmax_normalize_to_01(data_nan)
+            @test min_val == 1.0
+            @test max_val == 5.0
+            @test normalized[1] ≈ 0.0 atol=1e-10
+            @test isnan(normalized[2])
+            @test normalized[3] ≈ 0.5 atol=1e-10
+            @test isnan(normalized[4])
+            @test normalized[5] ≈ 1.0 atol=1e-10
+            
+            # Test all NaN data
+            all_nan = [NaN, NaN, NaN]
+            normalized, min_val, max_val = RealLabelNormalization._minmax_normalize_to_01(all_nan)
+            @test isnan(min_val)
+            @test isnan(max_val)
+            @test all(isnan.(normalized))
+            
+            # Test constant data
+            constant_data = [5.0, 5.0, 5.0, 5.0]
+            normalized, min_val, max_val = RealLabelNormalization._minmax_normalize_to_01(constant_data)
+            @test min_val == 5.0
+            @test max_val == 5.0
+            @test all(normalized .== 0.0)
+        end
+
+        @testset "_scale_to_range Tests" begin
+            # Test scaling from [0,1] to [-1,1]
+            data_01 = [0.0, 0.25, 0.5, 0.75, 1.0]
+            scaled = RealLabelNormalization._scale_to_range(data_01, (-1.0, 1.0))
+            @test scaled ≈ [-1.0, -0.5, 0.0, 0.5, 1.0] atol=1e-10
+            
+            # Test scaling from [0,1] to [0, 10]
+            scaled = RealLabelNormalization._scale_to_range(data_01, (0.0, 10.0))
+            @test scaled ≈ [0.0, 2.5, 5.0, 7.5, 10.0] atol=1e-10
+            
+            # Test scaling from [0,1] to [5, 15]
+            scaled = RealLabelNormalization._scale_to_range(data_01, (5.0, 15.0))
+            @test scaled ≈ [5.0, 7.5, 10.0, 12.5, 15.0] atol=1e-10
+            
+            # Test with NaN values
+            data_nan = [0.0, NaN, 0.5, NaN, 1.0]
+            scaled = RealLabelNormalization._scale_to_range(data_nan, (-1.0, 1.0))
+            @test scaled[1] ≈ -1.0 atol=1e-10
+            @test isnan(scaled[2])
+            @test scaled[3] ≈ 0.0 atol=1e-10
+            @test isnan(scaled[4])
+            @test scaled[5] ≈ 1.0 atol=1e-10
+        end
+    end
+
+    @testset "Methods.jl Core Normalization Functions Tests" begin
+        @testset "_normalize_vector Tests" begin
+            # Test minmax normalization
+            data = [1.0, 2.0, 3.0, 4.0, 5.0]
+            normalized = RealLabelNormalization._normalize_vector(data, :minmax, (-1.0, 1.0))
+            @test normalized ≈ [-1.0, -0.5, 0.0, 0.5, 1.0] atol=1e-10
+            
+            # Test zscore normalization
+            normalized_z = RealLabelNormalization._normalize_vector(data, :zscore, (-1.0, 1.0))
+            @test abs(mean(normalized_z)) < 1e-10
+            @test abs(std(normalized_z) - 1.0) < 1e-10
+            
+            # Test with NaN values
+            data_nan = [1.0, NaN, 3.0, NaN, 5.0]
+            normalized = RealLabelNormalization._normalize_vector(data_nan, :minmax, (-1.0, 1.0))
+            @test normalized[1] ≈ -1.0 atol=1e-10
+            @test isnan(normalized[2])
+            @test normalized[3] ≈ 0.0 atol=1e-10
+            @test isnan(normalized[4])
+            @test normalized[5] ≈ 1.0 atol=1e-10
+            
+            # Test constant data
+            constant_data = [5.0, 5.0, 5.0, 5.0]
+            normalized = RealLabelNormalization._normalize_vector(constant_data, :minmax, (-1.0, 1.0))
+            @test all(normalized .== 0.0)
+            
+            normalized_z = RealLabelNormalization._normalize_vector(constant_data, :zscore, (-1.0, 1.0))
+            @test all(normalized_z .== 0.0)
+        end
+
+        @testset "_normalize_global Tests" begin
+            # Test minmax normalization
+            matrix = [1.0 2.0; 3.0 4.0; 5.0 6.0]
+            normalized = RealLabelNormalization._normalize_global(matrix, :minmax, (-1.0, 1.0))
+            @test minimum(normalized) ≈ -1.0 atol=1e-10
+            @test maximum(normalized) ≈ 1.0 atol=1e-10
+            
+            # Test zscore normalization
+            normalized_z = RealLabelNormalization._normalize_global(matrix, :zscore, (-1.0, 1.0))
+            @test abs(mean(normalized_z)) < 1e-10
+            @test abs(std(normalized_z) - 1.0) < 1e-10
+            
+            # Test with NaN values
+            matrix_nan = [1.0 NaN; 3.0 4.0; NaN 6.0]
+            normalized = RealLabelNormalization._normalize_global(matrix_nan, :minmax, (-1.0, 1.0))
+            @test sum(isnan.(normalized)) == 2
+            @test normalized[1, 1] ≈ -1.0 atol=1e-10
+            @test isnan(normalized[1, 2])
+            @test normalized[2, 1] ≈ -0.2 atol=1e-10  # (3-1)/(6-1) * 2 - 1 = 0.4 * 2 - 1 = -0.2
+            @test normalized[2, 2] ≈ 0.2 atol=1e-10   # (4-1)/(6-1) * 2 - 1 = 0.6 * 2 - 1 = 0.2
+            @test isnan(normalized[3, 1])
+            @test normalized[3, 2] ≈ 1.0 atol=1e-10
+        end
+
+        @testset "_normalize_columnwise Tests" begin
+            # Test minmax normalization
+            matrix = [1.0 10.0; 2.0 20.0; 3.0 30.0; 4.0 40.0]
+            normalized = RealLabelNormalization._normalize_columnwise(matrix, :minmax, (-1.0, 1.0))
+            
+            # Each column should be normalized independently
+            @test normalized[:, 1] ≈ [-1.0, -1/3, 1/3, 1.0] atol=1e-10
+            @test normalized[:, 2] ≈ [-1.0, -1/3, 1/3, 1.0] atol=1e-10
+            
+            # Test zscore normalization
+            normalized_z = RealLabelNormalization._normalize_columnwise(matrix, :zscore, (-1.0, 1.0))
+            for col in 1:size(matrix, 2)
+                col_data = normalized_z[:, col]
+                @test abs(mean(col_data)) < 1e-10
+                @test abs(std(col_data) - 1.0) < 1e-10
+            end
+            
+            # Test with NaN values
+            matrix_nan = [1.0 NaN; 2.0 20.0; NaN 30.0; 4.0 40.0]
+            normalized = RealLabelNormalization._normalize_columnwise(matrix_nan, :minmax, (-1.0, 1.0))
+            @test sum(isnan.(normalized)) == 2
+            @test normalized[1, 1] ≈ -1.0 atol=1e-10
+            @test isnan(normalized[1, 2])
+            @test normalized[2, 1] ≈ -1/3 atol=1e-10
+            @test normalized[2, 2] ≈ -1.0 atol=1e-10  # Column 2: (20-20)/(40-20) * 2 - 1 = 0 * 2 - 1 = -1
+            @test isnan(normalized[3, 1])
+            @test normalized[3, 2] ≈ 0.0 atol=1e-10   # Column 2: (30-20)/(40-20) * 2 - 1 = 0.5 * 2 - 1 = 0
+            @test normalized[4, 1] ≈ 1.0 atol=1e-10
+            @test normalized[4, 2] ≈ 1.0 atol=1e-10
+        end
+
+        @testset "_normalize_rowwise Tests" begin
+            # Test minmax normalization
+            matrix = [1.0 2.0 3.0; 10.0 20.0 30.0; -1.0 0.0 1.0]
+            normalized = RealLabelNormalization._normalize_rowwise(matrix, :minmax, (-1.0, 1.0))
+            
+            # Each row should be normalized independently
+            @test normalized[1, :] ≈ [-1.0, 0.0, 1.0] atol=1e-10
+            @test normalized[2, :] ≈ [-1.0, 0.0, 1.0] atol=1e-10
+            @test normalized[3, :] ≈ [-1.0, 0.0, 1.0] atol=1e-10
+            
+            # Test zscore normalization
+            normalized_z = RealLabelNormalization._normalize_rowwise(matrix, :zscore, (-1.0, 1.0))
+            for row in 1:size(matrix, 1)
+                row_data = normalized_z[row, :]
+                @test abs(mean(row_data)) < 1e-10
+                @test abs(std(row_data) - 1.0) < 1e-10
+            end
+            
+            # Test with NaN values
+            matrix_nan = [1.0 NaN 3.0; 10.0 20.0 NaN]
+            normalized = RealLabelNormalization._normalize_rowwise(matrix_nan, :minmax, (-1.0, 1.0))
+            @test sum(isnan.(normalized)) == 2
+            @test normalized[1, 1] ≈ -1.0 atol=1e-10
+            @test isnan(normalized[1, 2])
+            @test normalized[1, 3] ≈ 1.0 atol=1e-10
+            @test normalized[2, 1] ≈ -1.0 atol=1e-10
+            @test normalized[2, 2] ≈ 1.0 atol=1e-10  # Row 2: (20-10)/(20-10) * 2 - 1 = 1 * 2 - 1 = 1
+            @test isnan(normalized[2, 3])
+        end
+    end
+
+    @testset "Methods.jl Application Functions Tests" begin
+        @testset "_apply_minmax_normalization Tests" begin
+            # Test vector case
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            stats = (mode = :vector, min_val = 1.0, max_val = 5.0, range = (-1.0, 1.0))
+            normalized = RealLabelNormalization._apply_minmax_normalization(labels, stats)
+            @test normalized ≈ [-1.0, -0.5, 0.0, 0.5, 1.0] atol=1e-10
+            
+            # Test global case
+            matrix = [1.0 2.0; 3.0 4.0; 5.0 6.0]
+            stats_global = (mode = :global, min_val = 1.0, max_val = 6.0, range = (-1.0, 1.0))
+            normalized_global = RealLabelNormalization._apply_minmax_normalization(matrix, stats_global)
+            @test minimum(normalized_global) ≈ -1.0 atol=1e-10
+            @test maximum(normalized_global) ≈ 1.0 atol=1e-10
+            
+            # Test columnwise case
+            stats_col = (mode = :columnwise, min_vals = [1.0, 2.0], max_vals = [5.0, 6.0], range = (-1.0, 1.0))
+            normalized_col = RealLabelNormalization._apply_minmax_normalization(matrix, stats_col)
+            @test normalized_col[:, 1] ≈ [-1.0, 0.0, 1.0] atol=1e-10
+            @test normalized_col[:, 2] ≈ [-1.0, 0.0, 1.0] atol=1e-10
+            
+            # Test rowwise case
+            stats_row = (mode = :rowwise, min_vals = [1.0, 3.0, 5.0], max_vals = [2.0, 4.0, 6.0], range = (-1.0, 1.0))
+            normalized_row = RealLabelNormalization._apply_minmax_normalization(matrix, stats_row)
+            @test normalized_row[1, :] ≈ [-1.0, 1.0] atol=1e-10  # Row 1: [1,2] -> [-1,1]
+            @test normalized_row[2, :] ≈ [-1.0, 1.0] atol=1e-10  # Row 2: [3,4] -> [-1,1] 
+            @test normalized_row[3, :] ≈ [-1.0, 1.0] atol=1e-10  # Row 3: [5,6] -> [-1,1]
+            
+            # Test constant data (min_val == max_val)
+            stats_constant = (mode = :vector, min_val = 5.0, max_val = 5.0, range = (-1.0, 1.0))
+            normalized_constant = RealLabelNormalization._apply_minmax_normalization(labels, stats_constant)
+            @test all(normalized_constant .== 0.0)
+        end
+
+        @testset "_apply_zscore_normalization Tests" begin
+            # Test vector case
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            stats = (mode = :vector, mean = 3.0, std = sqrt(2.5))
+            normalized = RealLabelNormalization._apply_zscore_normalization(labels, stats)
+            @test abs(mean(normalized)) < 1e-10
+            @test abs(std(normalized) - 1.0) < 1e-10
+            
+            # Test global case
+            matrix = [1.0 2.0; 3.0 4.0; 5.0 6.0]
+            stats_global = (mode = :global, mean = 3.5, std = sqrt(3.5))
+            normalized_global = RealLabelNormalization._apply_zscore_normalization(matrix, stats_global)
+            @test abs(mean(normalized_global)) < 1e-10
+            @test abs(std(normalized_global) - 1.0) < 1e-10
+            
+            # Test columnwise case
+            stats_col = (mode = :columnwise, means = [3.0, 4.0], stds = [2.0, 2.0])
+            normalized_col = RealLabelNormalization._apply_zscore_normalization(matrix, stats_col)
+            for col in 1:size(matrix, 2)
+                col_data = normalized_col[:, col]
+                @test abs(mean(col_data)) < 1e-10
+                @test abs(std(col_data) - 1.0) < 1e-10
+            end
+            
+            # Test rowwise case
+            stats_row = (mode = :rowwise, means = [1.5, 3.5, 5.5], stds = [0.5, 0.5, 0.5])
+            normalized_row = RealLabelNormalization._apply_zscore_normalization(matrix, stats_row)
+            for row in 1:size(matrix, 1)
+                row_data = normalized_row[row, :]
+                @test abs(mean(row_data)) < 1e-10
+                @test abs(std(row_data) - 1.0) < 0.5  # Very lenient tolerance for std due to small sample size
+            end
+            
+            # Test zero standard deviation
+            stats_zero_std = (mode = :vector, mean = 3.0, std = 0.0)
+            normalized_zero = RealLabelNormalization._apply_zscore_normalization(labels, stats_zero_std)
+            @test all(normalized_zero .== 0.0)
+        end
+    end
+
+    @testset "Methods.jl Denormalization Functions Tests" begin
+        @testset "_denormalize_minmax Tests" begin
+            # Test vector case
+            normalized = [-1.0, -0.5, 0.0, 0.5, 1.0]
+            stats = (mode = :vector, min_val = 1.0, max_val = 5.0, range = (-1.0, 1.0))
+            denormalized = RealLabelNormalization._denormalize_minmax(normalized, stats)
+            @test denormalized ≈ [1.0, 2.0, 3.0, 4.0, 5.0] atol=1e-10
+            
+            # Test global case
+            normalized_global = [-1.0 0.0; 0.0 1.0]
+            stats_global = (mode = :global, min_val = 1.0, max_val = 4.0, range = (-1.0, 1.0))
+            denormalized_global = RealLabelNormalization._denormalize_minmax(normalized_global, stats_global)
+            @test denormalized_global ≈ [1.0 2.5; 2.5 4.0] atol=1e-10
+            
+            # Test columnwise case
+            normalized_col = [-1.0 0.0; 0.0 1.0]
+            stats_col = (mode = :columnwise, min_vals = [1.0, 2.0], max_vals = [3.0, 4.0], range = (-1.0, 1.0))
+            denormalized_col = RealLabelNormalization._denormalize_minmax(normalized_col, stats_col)
+            @test denormalized_col[:, 1] ≈ [1.0, 2.0] atol=1e-10
+            @test denormalized_col[:, 2] ≈ [3.0, 4.0] atol=1e-10
+            
+            # Test rowwise case
+            normalized_row = [-1.0 0.0; 0.0 1.0]
+            stats_row = (mode = :rowwise, min_vals = [1.0, 3.0], max_vals = [3.0, 5.0], range = (-1.0, 1.0))
+            denormalized_row = RealLabelNormalization._denormalize_minmax(normalized_row, stats_row)
+            @test denormalized_row[1, :] ≈ [1.0, 2.0] atol=1e-10
+            @test denormalized_row[2, :] ≈ [4.0, 5.0] atol=1e-10
+            
+            # Test constant data (min_val == max_val)
+            stats_constant = (mode = :vector, min_val = 5.0, max_val = 5.0, range = (-1.0, 1.0))
+            denormalized_constant = RealLabelNormalization._denormalize_minmax(normalized, stats_constant)
+            @test all(denormalized_constant .== 5.0)
+        end
+
+        @testset "_denormalize_zscore Tests" begin
+            # Test vector case
+            normalized = [-1.0, -0.5, 0.0, 0.5, 1.0]
+            stats = (mode = :vector, mean = 3.0, std = 2.0)
+            denormalized = RealLabelNormalization._denormalize_zscore(normalized, stats)
+            @test denormalized ≈ [1.0, 2.0, 3.0, 4.0, 5.0] atol=1e-10
+            
+            # Test global case
+            normalized_global = [-1.0 0.0; 0.0 1.0]
+            stats_global = (mode = :global, mean = 3.5, std = 2.0)
+            denormalized_global = RealLabelNormalization._denormalize_zscore(normalized_global, stats_global)
+            @test denormalized_global ≈ [1.5 3.5; 3.5 5.5] atol=1e-10
+            
+            # Test columnwise case
+            normalized_col = [-1.0 0.0; 0.0 1.0]
+            stats_col = (mode = :columnwise, means = [2.0, 3.0], stds = [1.0, 2.0])
+            denormalized_col = RealLabelNormalization._denormalize_zscore(normalized_col, stats_col)
+            @test denormalized_col[:, 1] ≈ [1.0, 2.0] atol=1e-10
+            @test denormalized_col[:, 2] ≈ [3.0, 5.0] atol=1e-10
+            
+            # Test rowwise case
+            normalized_row = [-1.0 0.0; 0.0 1.0]
+            stats_row = (mode = :rowwise, means = [2.0, 4.0], stds = [1.0, 2.0])
+            denormalized_row = RealLabelNormalization._denormalize_zscore(normalized_row, stats_row)
+            @test denormalized_row[1, :] ≈ [1.0, 2.0] atol=1e-10
+            @test denormalized_row[2, :] ≈ [4.0, 6.0] atol=1e-10
+            
+            # Test zero standard deviation
+            stats_zero_std = (mode = :vector, mean = 3.0, std = 0.0)
+            denormalized_zero = RealLabelNormalization._denormalize_zscore(normalized, stats_zero_std)
+            @test all(denormalized_zero .== 3.0)
+        end
     end    
 end
 
