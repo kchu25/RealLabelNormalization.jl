@@ -1,20 +1,31 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Examples · RealLabelNormalization.jl</title><meta name="title" content="Examples · RealLabelNormalization.jl"/><meta property="og:title" content="Examples · RealLabelNormalization.jl"/><meta property="twitter:title" content="Examples · RealLabelNormalization.jl"/><meta name="description" content="Documentation for RealLabelNormalization.jl."/><meta property="og:description" content="Documentation for RealLabelNormalization.jl."/><meta property="twitter:description" content="Documentation for RealLabelNormalization.jl."/><meta property="og:url" content="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><meta property="twitter:url" content="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><link rel="canonical" href="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">RealLabelNormalization.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../guide/">User Guide</a></li><li class="is-active"><a class="tocitem" href>Examples</a><ul class="internal"><li><a class="tocitem" href="#Basic-Examples"><span>Basic Examples</span></a></li><li><a class="tocitem" href="#Machine-Learning-Workflow-Examples"><span>Machine Learning Workflow Examples</span></a></li><li><a class="tocitem" href="#Advanced-Examples"><span>Advanced Examples</span></a></li><li><a class="tocitem" href="#Performance-Considerations"><span>Performance Considerations</span></a></li></ul></li><li><a class="tocitem" href="../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/kchu25/RealLabelNormalization.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/kchu25/RealLabelNormalization.jl/blob/main/docs/src/examples.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h1><p>This page provides comprehensive examples of using RealLabelNormalization.jl in various scenarios.</p><h2 id="Basic-Examples"><a class="docs-heading-anchor" href="#Basic-Examples">Basic Examples</a><a id="Basic-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Examples" title="Permalink"></a></h2><h3 id="Example-1:-Single-Target-Regression"><a class="docs-heading-anchor" href="#Example-1:-Single-Target-Regression">Example 1: Single Target Regression</a><a id="Example-1:-Single-Target-Regression-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-Single-Target-Regression" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Examples · RealLabelNormalization.jl</title><meta name="title" content="Examples · RealLabelNormalization.jl"/><meta property="og:title" content="Examples · RealLabelNormalization.jl"/><meta property="twitter:title" content="Examples · RealLabelNormalization.jl"/><meta name="description" content="Documentation for RealLabelNormalization.jl."/><meta property="og:description" content="Documentation for RealLabelNormalization.jl."/><meta property="twitter:description" content="Documentation for RealLabelNormalization.jl."/><meta property="og:url" content="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><meta property="twitter:url" content="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><link rel="canonical" href="https://kchu25.github.io/RealLabelNormalization.jl/examples/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">RealLabelNormalization.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../guide/">User Guide</a></li><li class="is-active"><a class="tocitem" href>Examples</a><ul class="internal"><li><a class="tocitem" href="#Critical:-Always-Use-the-Stats-Based-Workflow"><span>⚠️ Critical: Always Use the Stats-Based Workflow</span></a></li><li><a class="tocitem" href="#Basic-Examples"><span>Basic Examples</span></a></li><li><a class="tocitem" href="#Machine-Learning-Workflow-Examples"><span>Machine Learning Workflow Examples</span></a></li><li><a class="tocitem" href="#The-Golden-Rule:-Stats-Based-Workflow"><span>The Golden Rule: Stats-Based Workflow</span></a></li><li><a class="tocitem" href="#Advanced-Examples"><span>Advanced Examples</span></a></li><li><a class="tocitem" href="#Performance-Considerations"><span>Performance Considerations</span></a></li></ul></li><li><a class="tocitem" href="../api/">API Reference</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Examples</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Examples</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/kchu25/RealLabelNormalization.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/kchu25/RealLabelNormalization.jl/blob/main/docs/src/examples.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Examples"><a class="docs-heading-anchor" href="#Examples">Examples</a><a id="Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Examples" title="Permalink"></a></h1><p>This page provides comprehensive examples of the <strong>stats-based workflow</strong> for leak-free label normalization.</p><h2 id="Critical:-Always-Use-the-Stats-Based-Workflow"><a class="docs-heading-anchor" href="#Critical:-Always-Use-the-Stats-Based-Workflow">⚠️ Critical: Always Use the Stats-Based Workflow</a><a id="Critical:-Always-Use-the-Stats-Based-Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Critical:-Always-Use-the-Stats-Based-Workflow" title="Permalink"></a></h2><p><strong>NEVER</strong> use <code>normalize_labels()</code> directly on your full dataset. This causes data leakage! Always follow the three-step pattern:</p><ol><li><strong>Compute stats from training data ONLY</strong></li><li><strong>Apply the same stats to validation/test data</strong>  </li><li><strong>Denormalize predictions using the same stats</strong></li></ol><h2 id="Basic-Examples"><a class="docs-heading-anchor" href="#Basic-Examples">Basic Examples</a><a id="Basic-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Basic-Examples" title="Permalink"></a></h2><h3 id="Example-1:-Single-Target-Regression-(Stats-Based)"><a class="docs-heading-anchor" href="#Example-1:-Single-Target-Regression-(Stats-Based)">Example 1: Single Target Regression (Stats-Based)</a><a id="Example-1:-Single-Target-Regression-(Stats-Based)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-Single-Target-Regression-(Stats-Based)" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
 using Random
 Random.seed!(42)
 
 # Simulate house prices with some outliers
-house_prices = [200_000, 250_000, 180_000, 320_000, 275_000, 
+train_prices = [200_000, 250_000, 180_000, 320_000, 275_000, 
                 190_000, 2_000_000, 210_000, 290_000, 240_000]  # 2M is outlier
+test_prices = [220_000, 280_000, 195_000, 310_000]
 
-println(&quot;Original prices: &quot;, house_prices)
-println(&quot;Min: $(minimum(house_prices)), Max: $(maximum(house_prices))&quot;)
+println(&quot;Training prices: &quot;, train_prices)
+println(&quot;Test prices: &quot;, test_prices)
 
-# Normalize with outlier clipping
-normalized = normalize_labels(house_prices)
-println(&quot;Normalized: &quot;, normalized)
-println(&quot;Range: [$(minimum(normalized)), $(maximum(normalized))]&quot;)</code></pre><h3 id="Example-2:-Multi-Target-Regression"><a class="docs-heading-anchor" href="#Example-2:-Multi-Target-Regression">Example 2: Multi-Target Regression</a><a id="Example-2:-Multi-Target-Regression-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Multi-Target-Regression" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Simulate multi-target regression: [temperature, humidity, pressure]
-weather_data = [20.5 65.0 1013.2;
+# Step 1: Compute stats from training data ONLY
+stats = compute_normalization_stats(train_prices; method=:zscore, clip_quantiles=(0.01, 0.99))
+
+# Step 2: Apply SAME stats to both training and test data
+train_normalized = apply_normalization(train_prices, stats)
+test_normalized = apply_normalization(test_prices, stats)
+
+println(&quot;Training normalized: &quot;, train_normalized)
+println(&quot;Test normalized: &quot;, test_normalized)
+
+# Step 3: Denormalize predictions using SAME stats
+predictions_normalized = [0.5, -0.2, 0.8, 0.1]  # Model outputs
+predictions_original = denormalize_labels(predictions_normalized, stats)
+println(&quot;Predictions (original scale): &quot;, predictions_original)</code></pre><h3 id="Example-2:-Multi-Target-Regression-(Stats-Based)"><a class="docs-heading-anchor" href="#Example-2:-Multi-Target-Regression-(Stats-Based)">Example 2: Multi-Target Regression (Stats-Based)</a><a id="Example-2:-Multi-Target-Regression-(Stats-Based)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-2:-Multi-Target-Regression-(Stats-Based)" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Simulate multi-target regression: [temperature, humidity, pressure]
+weather_train = [20.5 65.0 1013.2;
                 22.1 58.3 1015.8;
                 18.9 72.1 1008.9;
                 25.4 45.2 1020.1;
@@ -22,19 +33,36 @@ weather_data = [20.5 65.0 1013.2;
                 50.0 30.0 950.0;   # Outlier row
                 21.8 61.5 1016.3]
 
-println(&quot;Original data shape: &quot;, size(weather_data))
+weather_test = [19.5 70.0 1012.5;
+               23.2 55.0 1018.0;
+               17.8 75.0 1009.5]
 
-# Column-wise normalization (each variable independently)
-normalized_col = normalize_labels(weather_data; mode=:columnwise)
-println(&quot;Column-wise normalized ranges:&quot;)
-for i in 1:size(normalized_col, 2)
-    col_range = [minimum(normalized_col[:, i]), maximum(normalized_col[:, i])]
+println(&quot;Training data shape: &quot;, size(weather_train))
+println(&quot;Test data shape: &quot;, size(weather_test))
+
+# Step 1: Compute stats from training data ONLY
+stats_col = compute_normalization_stats(weather_train; mode=:columnwise, method=:zscore)
+stats_global = compute_normalization_stats(weather_train; mode=:global, method=:zscore)
+
+# Step 2: Apply SAME stats to both training and test data
+train_norm_col = apply_normalization(weather_train, stats_col)
+test_norm_col = apply_normalization(weather_test, stats_col)
+
+train_norm_global = apply_normalization(weather_train, stats_global)
+test_norm_global = apply_normalization(weather_test, stats_global)
+
+println(&quot;Column-wise normalized ranges (training):&quot;)
+for i in 1:size(train_norm_col, 2)
+    col_range = [minimum(train_norm_col[:, i]), maximum(train_norm_col[:, i])]
     println(&quot;  Column $i: $col_range&quot;)
 end
 
-# Global normalization (all variables on same scale)
-normalized_global = normalize_labels(weather_data; mode=:global)
-println(&quot;Global normalized range: [$(minimum(normalized_global)), $(maximum(normalized_global))]&quot;)</code></pre><h2 id="Machine-Learning-Workflow-Examples"><a class="docs-heading-anchor" href="#Machine-Learning-Workflow-Examples">Machine Learning Workflow Examples</a><a id="Machine-Learning-Workflow-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Machine-Learning-Workflow-Examples" title="Permalink"></a></h2><h3 id="Example-3:-Complete-Train/Validation/Test-Pipeline"><a class="docs-heading-anchor" href="#Example-3:-Complete-Train/Validation/Test-Pipeline">Example 3: Complete Train/Validation/Test Pipeline</a><a id="Example-3:-Complete-Train/Validation/Test-Pipeline-1"></a><a class="docs-heading-anchor-permalink" href="#Example-3:-Complete-Train/Validation/Test-Pipeline" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+println(&quot;Global normalized range (training): [$(minimum(train_norm_global)), $(maximum(train_norm_global))]&quot;)
+
+# Step 3: Denormalize predictions using SAME stats
+predictions_norm = [0.5 -0.2 0.8; -0.3 0.7 -0.1]
+predictions_original = denormalize_labels(predictions_norm, stats_col)
+println(&quot;Predictions (original scale): &quot;, predictions_original)</code></pre><h2 id="Machine-Learning-Workflow-Examples"><a class="docs-heading-anchor" href="#Machine-Learning-Workflow-Examples">Machine Learning Workflow Examples</a><a id="Machine-Learning-Workflow-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Machine-Learning-Workflow-Examples" title="Permalink"></a></h2><h3 id="Example-3:-Complete-Train/Validation/Test-Pipeline-(Stats-Based)"><a class="docs-heading-anchor" href="#Example-3:-Complete-Train/Validation/Test-Pipeline-(Stats-Based)">Example 3: Complete Train/Validation/Test Pipeline (Stats-Based)</a><a id="Example-3:-Complete-Train/Validation/Test-Pipeline-(Stats-Based)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-3:-Complete-Train/Validation/Test-Pipeline-(Stats-Based)" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
 using Random
 Random.seed!(123)
 
@@ -63,11 +91,11 @@ println(&quot;  Val:   mean=$(mean(y_val)), std=$(std(y_val))&quot;)
 println(&quot;  Test:  mean=$(mean(y_test)), std=$(std(y_test))&quot;)
 
 # Step 1: Compute normalization statistics from training data ONLY
-stats = compute_normalization_stats(y_train; method=:zscore)
+stats = compute_normalization_stats(y_train; method=:zscore, clip_quantiles=(0.01, 0.99))
 println(&quot;\\nNormalization statistics computed from training data:&quot;)
 println(stats)
 
-# Step 2: Apply normalization to all splits
+# Step 2: Apply SAME stats to all splits
 y_train_norm = apply_normalization(y_train, stats)
 y_val_norm = apply_normalization(y_val, stats)
 y_test_norm = apply_normalization(y_test, stats)
@@ -84,56 +112,91 @@ println(&quot;  Test:  mean=$(mean(y_test_norm)), std=$(std(y_test_norm))&quot;)
 # Simulate some predictions
 y_pred_norm = y_test_norm + 0.1 * randn(length(y_test_norm))  # Add some error
 
-# Step 4: Denormalize predictions back to original scale
+# Step 4: Denormalize predictions back to original scale using SAME stats
 y_pred_original = denormalize_labels(y_pred_norm, stats)
 
 println(&quot;\\nPrediction comparison (first 10 samples):&quot;)
 println(&quot;  True:      &quot;, y_test[1:10])
 println(&quot;  Predicted: &quot;, y_pred_original[1:10])
-println(&quot;  Error:     &quot;, abs.(y_test[1:10] - y_pred_original[1:10]))</code></pre><h3 id="Example-4:-Handling-Missing-Data"><a class="docs-heading-anchor" href="#Example-4:-Handling-Missing-Data">Example 4: Handling Missing Data</a><a id="Example-4:-Handling-Missing-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Example-4:-Handling-Missing-Data" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+println(&quot;  Error:     &quot;, abs.(y_test[1:10] - y_pred_original[1:10]))</code></pre><h3 id="Example-4:-Handling-Missing-Data-(Stats-Based)"><a class="docs-heading-anchor" href="#Example-4:-Handling-Missing-Data-(Stats-Based)">Example 4: Handling Missing Data (Stats-Based)</a><a id="Example-4:-Handling-Missing-Data-(Stats-Based)-1"></a><a class="docs-heading-anchor-permalink" href="#Example-4:-Handling-Missing-Data-(Stats-Based)" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
 
-# Data with missing values (NaN)
-data_with_missing = [1.0, 2.0, NaN, 4.0, 5.0, 6.0, NaN, 8.0, 100.0, 9.0]
+# Training data with missing values (NaN)
+train_with_missing = [1.0, 2.0, NaN, 4.0, 5.0, 6.0, NaN, 8.0, 100.0, 9.0]
+test_with_missing = [1.5, NaN, 3.2, 4.8, NaN, 7.1]
 
-println(&quot;Original data: &quot;, data_with_missing)
-println(&quot;Valid values: &quot;, data_with_missing[.!isnan.(data_with_missing)])
+println(&quot;Training data: &quot;, train_with_missing)
+println(&quot;Test data: &quot;, test_with_missing)
+println(&quot;Valid training values: &quot;, train_with_missing[.!isnan.(train_with_missing)])
 
-# Normalize - NaN values are preserved, stats computed on valid data
-normalized = normalize_labels(data_with_missing)
-println(&quot;Normalized: &quot;, normalized)
+# Step 1: Compute stats from valid training data only
+stats = compute_normalization_stats(train_with_missing; method=:zscore, clip_quantiles=(0.01, 0.99))
+println(&quot;\\nComputed statistics from valid training data: &quot;, stats)
+
+# Step 2: Apply SAME stats to both training and test data
+train_norm = apply_normalization(train_with_missing, stats)
+test_norm = apply_normalization(test_with_missing, stats)
+
+println(&quot;Training normalized: &quot;, train_norm)
+println(&quot;Test normalized: &quot;, test_norm)
 
 # Check that NaN positions are preserved
-println(&quot;NaN preserved? &quot;, isnan.(data_with_missing) == isnan.(normalized))
+println(&quot;Training NaN preserved? &quot;, isnan.(train_with_missing) == isnan.(train_norm))
+println(&quot;Test NaN preserved? &quot;, isnan.(test_with_missing) == isnan.(test_norm))
 
-# Compute statistics - works with missing data
-stats = compute_normalization_stats(data_with_missing)
-println(&quot;\\nComputed statistics: &quot;, stats)</code></pre><h2 id="Advanced-Examples"><a class="docs-heading-anchor" href="#Advanced-Examples">Advanced Examples</a><a id="Advanced-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Examples" title="Permalink"></a></h2><h3 id="Example-5:-Comparing-Normalization-Methods"><a class="docs-heading-anchor" href="#Example-5:-Comparing-Normalization-Methods">Example 5: Comparing Normalization Methods</a><a id="Example-5:-Comparing-Normalization-Methods-1"></a><a class="docs-heading-anchor-permalink" href="#Example-5:-Comparing-Normalization-Methods" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
+# Step 3: Denormalize predictions using SAME stats
+predictions_norm = [0.5, NaN, -0.2, 0.8, NaN, 0.1]
+predictions_original = denormalize_labels(predictions_norm, stats)
+println(&quot;Predictions (original scale): &quot;, predictions_original)</code></pre><h2 id="The-Golden-Rule:-Stats-Based-Workflow"><a class="docs-heading-anchor" href="#The-Golden-Rule:-Stats-Based-Workflow">The Golden Rule: Stats-Based Workflow</a><a id="The-Golden-Rule:-Stats-Based-Workflow-1"></a><a class="docs-heading-anchor-permalink" href="#The-Golden-Rule:-Stats-Based-Workflow" title="Permalink"></a></h2><h3 id="CORRECT:-Always-Use-This-Pattern"><a class="docs-heading-anchor" href="#CORRECT:-Always-Use-This-Pattern">✅ CORRECT: Always Use This Pattern</a><a id="CORRECT:-Always-Use-This-Pattern-1"></a><a class="docs-heading-anchor-permalink" href="#CORRECT:-Always-Use-This-Pattern" title="Permalink"></a></h3><pre><code class="language-julia hljs"># Step 1: Compute stats from training data ONLY
+stats = compute_normalization_stats(train_labels; method=:zscore, clip_quantiles=(0.01, 0.99))
+
+# Step 2: Apply SAME stats to all data splits
+train_norm = apply_normalization(train_labels, stats)
+val_norm = apply_normalization(val_labels, stats)    # Same stats
+test_norm = apply_normalization(test_labels, stats)  # Same stats
+
+# Step 3: Denormalize predictions using SAME stats
+predictions_original = denormalize_labels(predictions_normalized, stats)</code></pre><h3 id="WRONG:-Direct-Normalization-(Causes-Data-Leakage)"><a class="docs-heading-anchor" href="#WRONG:-Direct-Normalization-(Causes-Data-Leakage)">❌ WRONG: Direct Normalization (Causes Data Leakage)</a><a id="WRONG:-Direct-Normalization-(Causes-Data-Leakage)-1"></a><a class="docs-heading-anchor-permalink" href="#WRONG:-Direct-Normalization-(Causes-Data-Leakage)" title="Permalink"></a></h3><pre><code class="language-julia hljs"># DON&#39;T DO THIS - causes data leakage!
+train_norm = normalize_labels(train_labels)
+test_norm = normalize_labels(test_labels)  # Different stats = data leakage!</code></pre><h3 id="Why-Stats-Based-Workflow-is-Critical"><a class="docs-heading-anchor" href="#Why-Stats-Based-Workflow-is-Critical">Why Stats-Based Workflow is Critical</a><a id="Why-Stats-Based-Workflow-is-Critical-1"></a><a class="docs-heading-anchor-permalink" href="#Why-Stats-Based-Workflow-is-Critical" title="Permalink"></a></h3><ol><li><strong>Prevents Data Leakage</strong>: Test data never influences normalization parameters</li><li><strong>Consistent Scaling</strong>: All data splits use identical normalization</li><li><strong>Proper Validation</strong>: Model performance reflects real-world generalization</li><li><strong>Correct Predictions</strong>: Denormalization uses the same parameters as training</li></ol><h2 id="Advanced-Examples"><a class="docs-heading-anchor" href="#Advanced-Examples">Advanced Examples</a><a id="Advanced-Examples-1"></a><a class="docs-heading-anchor-permalink" href="#Advanced-Examples" title="Permalink"></a></h2><h3 id="Example-5:-Cross-Validation-with-Consistent-Stats"><a class="docs-heading-anchor" href="#Example-5:-Cross-Validation-with-Consistent-Stats">Example 5: Cross-Validation with Consistent Stats</a><a id="Example-5:-Cross-Validation-with-Consistent-Stats-1"></a><a class="docs-heading-anchor-permalink" href="#Example-5:-Cross-Validation-with-Consistent-Stats" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
 using Statistics
 
-# Create data with different distributions
-uniform_data = rand(100) * 100
-normal_data = randn(100) * 20 .+ 50
-skewed_data = [rand() &lt; 0.8 ? rand() * 10 : rand() * 100 for _ in 1:100]
+# Simulate a dataset for cross-validation
+n_samples = 1000
+X = randn(n_samples, 5)
+y = 2 * X[:, 1] + 0.5 * X[:, 2].^2 - X[:, 3] + 0.1 * randn(n_samples)
 
-datasets = [(&quot;Uniform&quot;, uniform_data), (&quot;Normal&quot;, normal_data), (&quot;Skewed&quot;, skewed_data)]
+# 5-fold cross-validation
+n_folds = 5
+fold_size = n_samples ÷ n_folds
 
-for (name, data) in datasets
-    println(&quot;\\n=== $name Data ===&quot;)
-    println(&quot;Original: mean=$(mean(data)), std=$(std(data))&quot;)
+for fold in 1:n_folds
+    println(&quot;\\n=== Fold $fold ===&quot;)
     
-    # Min-max normalization
-    minmax_norm = normalize_labels(data; method=:minmax)
-    println(&quot;Min-max: range=[$(minimum(minmax_norm)), $(maximum(minmax_norm))]&quot;)
+    # Split data for this fold
+    val_start = (fold - 1) * fold_size + 1
+    val_end = fold * fold_size
+    val_idx = val_start:val_end
+    train_idx = setdiff(1:n_samples, val_idx)
     
-    # Z-score normalization
-    zscore_norm = normalize_labels(data; method=:zscore)
-    println(&quot;Z-score: mean=$(mean(zscore_norm)), std=$(std(zscore_norm))&quot;)
+    X_train, y_train = X[train_idx, :], y[train_idx]
+    X_val, y_val = X[val_idx, :], y[val_idx]
     
-    # Effect of outlier clipping
-    no_clip = normalize_labels(data; clip_quantiles=nothing)
-    with_clip = normalize_labels(data; clip_quantiles=(0.05, 0.95))
-    println(&quot;No clip range: [$(minimum(no_clip)), $(maximum(no_clip))]&quot;)
-    println(&quot;With clip range: [$(minimum(with_clip)), $(maximum(with_clip))]&quot;)
+    # Step 1: Compute stats from training fold ONLY
+    stats = compute_normalization_stats(y_train; method=:zscore, clip_quantiles=(0.01, 0.99))
+    
+    # Step 2: Apply SAME stats to both training and validation
+    y_train_norm = apply_normalization(y_train, stats)
+    y_val_norm = apply_normalization(y_val, stats)  # Same stats!
+    
+    println(&quot;Training stats: mean=$(mean(y_train)), std=$(std(y_train))&quot;)
+    println(&quot;Validation stats: mean=$(mean(y_val)), std=$(std(y_val))&quot;)
+    println(&quot;Normalized training: mean=$(mean(y_train_norm)), std=$(std(y_train_norm))&quot;)
+    println(&quot;Normalized validation: mean=$(mean(y_val_norm)), std=$(std(y_val_norm))&quot;)
+    
+    # Step 3: Train model and make predictions
+    # model = train_model(X_train, y_train_norm)
+    # val_pred_norm = model(X_val)
+    # val_pred_original = denormalize_labels(val_pred_norm, stats)
 end</code></pre><h3 id="Example-6:-Custom-Normalization-Ranges"><a class="docs-heading-anchor" href="#Example-6:-Custom-Normalization-Ranges">Example 6: Custom Normalization Ranges</a><a id="Example-6:-Custom-Normalization-Ranges-1"></a><a class="docs-heading-anchor-permalink" href="#Example-6:-Custom-Normalization-Ranges" title="Permalink"></a></h3><pre><code class="language-julia hljs">using RealLabelNormalization
 
 # Original data
@@ -193,4 +256,4 @@ println(&quot;Dataset size: &quot;, size(large_data))
 println(&quot;\\nPerformance benchmarks:&quot;)
 @btime normalize_labels($large_data; mode=:columnwise)
 @btime compute_normalization_stats($large_data; mode=:columnwise)
-@btime apply_normalization($large_data, $stats) setup=(stats=compute_normalization_stats($large_data; mode=:columnwise))</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« User Guide</a><a class="docs-footer-nextpage" href="../api/">API Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 22 September 2025 04:20">Monday 22 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+@btime apply_normalization($large_data, $stats) setup=(stats=compute_normalization_stats($large_data; mode=:columnwise))</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../guide/">« User Guide</a><a class="docs-footer-nextpage" href="../api/">API Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 22 September 2025 04:33">Monday 22 September 2025</span>. Using Julia version 1.11.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
