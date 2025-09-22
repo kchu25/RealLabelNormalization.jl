@@ -9,6 +9,14 @@
 
 Provides robust workflows for normalizing real-valued regression labels while preventing data leakage, handling outliers, and preserving NaNs.
 
+## ⚠️ CRITICAL: Always Use the Stats-Based Workflow
+
+**NEVER** use `normalize_labels()` directly on your full dataset. This causes data leakage! Instead, follow this pattern:
+
+1. **Compute stats from training data ONLY**
+2. **Apply the same stats to validation/test data**  
+3. **Denormalize predictions using the same stats**
+
 ## Why This Package?
 
 ```julia
@@ -29,7 +37,8 @@ using Pkg
 Pkg.add("RealLabelNormalization")
 ```
 
-## Quick Start
+## Quick Start (Stats-Based Workflow)
+
 
 ```julia
 using RealLabelNormalization
@@ -41,7 +50,7 @@ test_labels = [2.1, 3.9, 4.5]
 # Step 1: Compute stats from TRAINING DATA ONLY
 stats = compute_normalization_stats(train_labels; method=:zscore, clip_quantiles=(0.01, 0.99))
 
-# Step 2: Apply to training data
+# Step 2: Apply SAME stats to training data
 train_normalized = apply_normalization(train_labels, stats)
 
 # Step 3: Apply SAME STATS to test data (prevents data leakage!)
@@ -50,10 +59,15 @@ test_normalized = apply_normalization(test_labels, stats)
 # Step 4: Train model on normalized data
 # model = train_your_model(X_train, train_normalized)
 
-# Step 5: Denormalize predictions back to original scale
+# Step 5: Denormalize predictions back to original scale using SAME stats
 predictions_normalized = model(X_test)  # Model outputs normalized predictions
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
+
+**The Golden Rule:**
+1. **Compute stats from training data ONLY**
+2. **Apply the same stats to validation/test data**  
+3. **Denormalize predictions using the same stats**
 
 ## Methods and Modes
 
@@ -68,42 +82,42 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 | **Column-wise** | `mode=:columnwise` | Per-column normalization | Multi-target with different units |
 | **Row-wise** | `mode=:rowwise` | Per-row normalization | Time series, per-sample scaling |
 
-## Usage Examples
+## Usage Examples (Stats-Based Workflow)
 
-### Single-Target Regression (Precomputed Stats Workflow)
+### Single-Target Regression
 ```julia
 train_labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]
 test_labels = [1.2, 4.8, 6.5]
 
-# ALWAYS compute stats from training data only
+# Step 1: Compute stats from training data ONLY
 stats_minmax = compute_normalization_stats(train_labels; method=:minmax, range=(-1, 1))
 stats_zscore = compute_normalization_stats(train_labels; method=:zscore)
 
-# Apply to both training and test using SAME stats
+# Step 2: Apply SAME stats to both training and test
 train_norm = apply_normalization(train_labels, stats_minmax)
 test_norm = apply_normalization(test_labels, stats_minmax)  # Same stats!
 
-# After training, denormalize predictions
+# Step 3: Denormalize predictions using SAME stats
 predictions_norm = model(X_test)
 predictions_original = denormalize_labels(predictions_norm, stats_minmax)
 ```
 
-### Multi-Target Regression (Stats Consistency Across Splits)
+### Multi-Target Regression
 ```julia
 # Weather data: [temperature, humidity, pressure]
 weather_train = [20.5 65.0 1013.2; 22.1 58.3 1015.8; 18.9 72.1 1008.9]
 weather_val = [19.8 70.2 1011.5; 23.1 55.0 1018.3]
 weather_test = [21.3 62.1 1014.7; 17.2 75.8 1009.2]
 
-# Compute stats ONCE from training data
+# Step 1: Compute stats ONCE from training data
 stats = compute_normalization_stats(weather_train; mode=:columnwise, method=:zscore)
 
-# Apply SAME stats to all splits
+# Step 2: Apply SAME stats to all splits
 train_norm = apply_normalization(weather_train, stats)
 val_norm = apply_normalization(weather_val, stats)      # Same stats
 test_norm = apply_normalization(weather_test, stats)    # Same stats
 
-# All predictions use the same stats for denormalization
+# Step 3: Denormalize predictions using SAME stats
 val_pred_original = denormalize_labels(model(X_val), stats)
 test_pred_original = denormalize_labels(model(X_test), stats)
 ```
@@ -114,31 +128,34 @@ test_pred_original = denormalize_labels(model(X_test), stats)
 for fold in 1:5
     train_idx, val_idx = get_cv_indices(fold)
     
-    # Stats computed on training fold only
+    # Step 1: Stats computed on training fold only
     fold_stats = compute_normalization_stats(y_train[train_idx])
     
-    # Apply to both training and validation portions
+    # Step 2: Apply to both training and validation portions
     y_train_norm = apply_normalization(y_train[train_idx], fold_stats)
     y_val_norm = apply_normalization(y_train[val_idx], fold_stats)  # Same stats!
     
-    # Train and validate model
+    # Step 3: Train and validate model
     model = train_model(X_train[train_idx], y_train_norm)
     val_pred_norm = model(X_train[val_idx])
     val_pred_original = denormalize_labels(val_pred_norm, fold_stats)
 end
 ```
 
-### Handling Missing Data (Stats from Valid Training Data)
+### Handling Missing Data
 ```julia
 train_with_nan = [1.0, 2.0, NaN, 4.0, 5.0, 100.0]
 test_with_nan = [1.5, NaN, 3.2]
 
-# Stats computed only on valid (non-NaN) training values
+# Step 1: Stats computed only on valid (non-NaN) training values
 stats = compute_normalization_stats(train_with_nan)  # Uses [1.0, 2.0, 4.0, 5.0, 100.0]
 
-# NaN positions preserved in both training and test
+# Step 2: NaN positions preserved in both training and test
 train_norm = apply_normalization(train_with_nan, stats)  # NaNs preserved
 test_norm = apply_normalization(test_with_nan, stats)    # NaNs preserved, same stats
+
+# Step 3: Denormalize predictions using SAME stats
+predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
 ## Key Features

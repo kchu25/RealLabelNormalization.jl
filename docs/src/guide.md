@@ -1,56 +1,93 @@
 # User Guide
 
-This guide covers the main features and usage patterns of RealLabelNormalization.jl.
+This guide covers the **stats-based workflow** for leak-free label normalization in machine learning.
 
-## Basic Usage
+## ⚠️ Critical: Always Use the Stats-Based Workflow
 
-### Single Target Normalization
+**NEVER** use `normalize_labels()` directly on your full dataset. This causes data leakage! Instead, follow this pattern:
 
-For regression tasks with a single target variable:
+1. **Compute stats from training data ONLY**
+2. **Apply the same stats to validation/test data**
+3. **Denormalize predictions using the same stats**
+
+## The Three-Step Pattern
+
+### Step 1: Compute Normalization Statistics (Training Data Only)
 
 ```julia
 using RealLabelNormalization
 
-# Your training labels
-train_labels = [1.2, 5.8, 3.4, 8.1, 2.3, 100.5]  # Note: 100.5 is an outlier
+# Your training labels (with outliers)
+train_labels = [1.2, 5.8, 3.4, 8.1, 2.3, 100.5]  # 100.5 is an outlier
 
-# Normalize with default settings (min-max to `[-1,1]` with outlier clipping)
-normalized = normalize_labels(train_labels)
+# Compute stats from training data ONLY
+stats = compute_normalization_stats(train_labels; method=:zscore, clip_quantiles=(0.01, 0.99))
 ```
 
-### Multi-Target Normalization
-
-For regression tasks with multiple target variables:
+### Step 2: Apply Stats to All Data Splits
 
 ```julia
-# Matrix where each column is a different target variable
+# Apply SAME stats to training data
+train_normalized = apply_normalization(train_labels, stats)
+
+# Apply SAME stats to validation data
+val_labels = [2.1, 4.3, 6.7, 9.2]
+val_normalized = apply_normalization(val_labels, stats)
+
+# Apply SAME stats to test data  
+test_labels = [1.8, 5.1, 7.3]
+test_normalized = apply_normalization(test_labels, stats)
+```
+
+### Step 3: Denormalize Predictions
+
+```julia
+# After training your model on normalized data...
+predictions_normalized = model(X_test)  # Model outputs normalized predictions
+
+# Convert back to original scale using SAME stats
+predictions_original = denormalize_labels(predictions_normalized, stats)
+```
+
+## Multi-Target Regression (Stats-Based)
+
+For multiple target variables, follow the same three-step pattern:
+
+```julia
+# Training data: each column is a different target
 train_labels = [1.0 10.0 100.0;
                 5.0 20.0 200.0;
                 3.0 15.0 150.0;
                 8.0 25.0 250.0]
 
-# Normalize each target independently
-normalized = normalize_labels(train_labels; mode=:columnwise)
+# Step 1: Compute stats from training data ONLY
+stats = compute_normalization_stats(train_labels; mode=:columnwise, method=:zscore)
 
-# Or normalize globally across all targets
-normalized = normalize_labels(train_labels; mode=:global)
+# Step 2: Apply SAME stats to all splits
+train_normalized = apply_normalization(train_labels, stats)
+val_normalized = apply_normalization(val_labels, stats)    # Same stats
+test_normalized = apply_normalization(test_labels, stats)  # Same stats
+
+# Step 3: Denormalize predictions using SAME stats
+predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
-## Normalization Methods
+## Normalization Methods (Stats-Based)
 
 ### Min-Max Normalization
 
 Scales values to a specified range (default: `[-1, 1]`):
 
 ```julia
-# Default: scale to `[-1, 1]`
-normalized = normalize_labels(labels)
+# Step 1: Compute stats from training data
+stats = compute_normalization_stats(train_labels; method=:minmax, range=(-1, 1))
 
-# Scale to [0, 1]
-normalized = normalize_labels(labels; range=(0, 1))
+# Step 2: Apply to all splits
+train_norm = apply_normalization(train_labels, stats)
+test_norm = apply_normalization(test_labels, stats)
 
-# Custom range
-normalized = normalize_labels(labels; range=(-2, 2))
+# Step 3: Denormalize predictions
+predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
 ### Z-Score Normalization
@@ -58,25 +95,36 @@ normalized = normalize_labels(labels; range=(-2, 2))
 Standardizes values to have zero mean and unit variance:
 
 ```julia
-normalized = normalize_labels(labels; method=:zscore)
-# Results in approximately: mean ≈ 0, std ≈ 1
+# Step 1: Compute stats from training data
+stats = compute_normalization_stats(train_labels; method=:zscore)
+
+# Step 2: Apply to all splits  
+train_norm = apply_normalization(train_labels, stats)
+test_norm = apply_normalization(test_labels, stats)
+
+# Step 3: Denormalize predictions
+predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
-## Outlier Handling
+## Outlier Handling (Stats-Based)
 
 ### Quantile-Based Clipping
 
-By default, outliers are clipped to the 1st and 99th percentiles before normalization:
+Configure clipping when computing stats from training data:
 
 ```julia
-# Default: clip to 1st-99th percentiles
-normalized = normalize_labels(labels)
+# Step 1: Compute stats with outlier clipping (training data only)
+stats = compute_normalization_stats(train_labels; 
+    method=:zscore, 
+    clip_quantiles=(0.01, 0.99)  # Default: clip to 1st-99th percentiles
+)
 
-# More aggressive clipping
-normalized = normalize_labels(labels; clip_quantiles=(0.05, 0.95))
+# Step 2: Apply to all splits (same clipping applied)
+train_norm = apply_normalization(train_labels, stats)
+test_norm = apply_normalization(test_labels, stats)
 
-# No clipping
-normalized = normalize_labels(labels; clip_quantiles=nothing)
+# Step 3: Denormalize predictions
+predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
 ### Why Clip Outliers?
@@ -84,49 +132,59 @@ normalized = normalize_labels(labels; clip_quantiles=nothing)
 Outliers can severely distort normalization, especially min-max scaling:
 
 ```julia
-labels = [1, 2, 3, 4, 5, 1000]  # 1000 is an outlier
+train_labels = [1, 2, 3, 4, 5, 1000]  # 1000 is an outlier
 
-# Without clipping - outlier dominates the scaling
-no_clip = normalize_labels(labels; clip_quantiles=nothing)
-# Result: [≈-1, ≈-1, ≈-1, ≈-1, ≈-1, 1] - poor distribution
+# Step 1: Compute stats with clipping
+stats_with_clip = compute_normalization_stats(train_labels; clip_quantiles=(0.1, 0.9))
 
-# With clipping - better distribution
-with_clip = normalize_labels(labels)
-# Result: more evenly distributed values in `[-1, 1]`
+# Step 2: Apply to test data
+test_labels = [1.5, 2.5, 3.5]
+test_norm = apply_normalization(test_labels, stats_with_clip)
+# Result: better distribution because outlier was clipped during stats computation
 ```
 
-## Handling Missing Data (NaN)
+## Handling Missing Data (Stats-Based)
 
-The package gracefully handles NaN values:
-
-```julia
-labels_with_nan = [1.0, 2.0, NaN, 4.0, 5.0]
-normalized = normalize_labels(labels_with_nan)
-# NaN values are preserved, statistics computed on valid data only
-```
-
-## Train/Test Consistency
-
-For machine learning workflows, it's crucial to use the same normalization parameters across train/validation/test splits:
+NaN values are handled gracefully in the stats-based workflow:
 
 ```julia
-# Step 1: Compute normalization statistics on training data only
-train_labels = [1.0, 2.0, 3.0, 4.0, 5.0]
-stats = compute_normalization_stats(train_labels)
+# Training data with missing values
+train_with_nan = [1.0, 2.0, NaN, 4.0, 5.0, 100.0]
 
-# Step 2: Apply to training data
-train_normalized = apply_normalization(train_labels, stats)
+# Step 1: Compute stats from valid training data only
+stats = compute_normalization_stats(train_with_nan)  # Uses [1.0, 2.0, 4.0, 5.0, 100.0]
 
-# Step 3: Apply same statistics to test data
-test_labels = [1.5, 2.5, 3.5, 6.0]  # Different distribution
-test_normalized = apply_normalization(test_labels, stats)
+# Step 2: Apply to all splits (NaN positions preserved)
+train_norm = apply_normalization(train_with_nan, stats)  # NaNs preserved
+test_norm = apply_normalization(test_with_nan, stats)    # NaNs preserved, same stats
 
-# Step 4: Denormalize predictions back to original scale
-predictions_normalized = [-0.2, 0.3, 0.8]
+# Step 3: Denormalize predictions
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
-## Best Practices
+## Complete Machine Learning Workflow
+
+Here's the complete pattern for any ML project:
+
+```julia
+# Step 1: Compute normalization statistics on training data ONLY
+train_labels = [1.0, 2.0, 3.0, 4.0, 5.0, 100.0]  # With outlier
+stats = compute_normalization_stats(train_labels; method=:zscore, clip_quantiles=(0.01, 0.99))
+
+# Step 2: Apply SAME stats to all data splits
+train_normalized = apply_normalization(train_labels, stats)
+val_normalized = apply_normalization(val_labels, stats)    # Same stats
+test_normalized = apply_normalization(test_labels, stats)  # Same stats
+
+# Step 3: Train model on normalized data
+# model = train_model(X_train, train_normalized)
+
+# Step 4: Make predictions and denormalize using SAME stats
+predictions_normalized = model(X_test)
+predictions_original = denormalize_labels(predictions_normalized, stats)
+```
+
+## Best Practices (Stats-Based Workflow)
 
 ### When to Use Each Method
 
@@ -135,35 +193,53 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 - **Global mode**: When all targets should be on the same scale (e.g., related measurements)
 - **Column-wise mode**: When targets represent different quantities with different scales
 
-### Recommended Workflow
+### The Golden Rule: Always Use Stats-Based Workflow
 
 ```julia
-# 1. Split your data first
-train_indices = 1:800
-test_indices = 801:1000
+# ✅ CORRECT: Stats-based workflow (prevents data leakage)
+stats = compute_normalization_stats(train_labels)  # Training data only
+train_norm = apply_normalization(train_labels, stats)
+test_norm = apply_normalization(test_labels, stats)  # Same stats
+predictions_original = denormalize_labels(predictions_normalized, stats)
 
-# 2. Compute stats only on training data
-stats = compute_normalization_stats(labels[train_indices])
+# ❌ WRONG: Direct normalization (causes data leakage)
+# train_norm = normalize_labels(train_labels)
+# test_norm = normalize_labels(test_labels)  # Different stats!
+```
 
-# 3. Apply to all splits
-train_normalized = apply_normalization(labels[train_indices], stats)
-test_normalized = apply_normalization(labels[test_indices], stats)
+### Cross-Validation with Consistent Stats
 
-# 4. Train your model on normalized data
-# ... train model ...
-
-# 5. Denormalize predictions
-predictions_original = denormalize_labels(model_predictions, stats)
+```julia
+# For each CV fold, compute stats on training portion only
+for fold in 1:5
+    train_idx, val_idx = get_cv_indices(fold)
+    
+    # Step 1: Compute stats on training fold only
+    fold_stats = compute_normalization_stats(y_train[train_idx])
+    
+    # Step 2: Apply to both training and validation portions
+    y_train_norm = apply_normalization(y_train[train_idx], fold_stats)
+    y_val_norm = apply_normalization(y_train[val_idx], fold_stats)  # Same stats!
+    
+    # Step 3: Train and validate model
+    model = train_model(X_train[train_idx], y_train_norm)
+    val_pred_norm = model(X_train[val_idx])
+    val_pred_original = denormalize_labels(val_pred_norm, fold_stats)
+end
 ```
 
 ### Handling Extreme Outliers
 
-For datasets with extreme outliers, consider more aggressive clipping:
+Configure clipping when computing stats from training data:
 
 ```julia
 # For data with extreme outliers (e.g., financial data)
-normalized = normalize_labels(labels; clip_quantiles=(0.1, 0.9))
+stats = compute_normalization_stats(train_labels; clip_quantiles=(0.1, 0.9))
 
 # For very clean data, you might skip clipping
-normalized = normalize_labels(labels; clip_quantiles=nothing)
+stats = compute_normalization_stats(train_labels; clip_quantiles=nothing)
+
+# Apply same clipping to all splits
+train_norm = apply_normalization(train_labels, stats)
+test_norm = apply_normalization(test_labels, stats)
 ```
