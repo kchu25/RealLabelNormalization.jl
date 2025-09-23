@@ -69,6 +69,16 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 2. **Apply the same stats to validation/test data**  
 3. **Denormalize predictions using the same stats**
 
+## Supported Data Types and Modes
+
+**Data Types:**
+- **Vectors**: Single-target regression (e.g., `[1.0, 2.0, 3.0]`)
+- **Matrices**: Multi-target regression (e.g., `[1.0 2.0; 3.0 4.0]`)
+
+**Important:** The `mode` parameter only applies to **matrices**. For **vectors**, the `mode` argument is ignored and normalization is always applied globally across all elements.
+
+**Default Mode for Matrices:** The default mode is `:rowwise` since Flux.jl (and many ML frameworks) use the last dimension as the number of data points, making row-wise normalization the most common use case.
+
 ## Methods and Modes
 
 | Method | Syntax | Description | Best For |
@@ -78,18 +88,21 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 
 | Mode | Syntax | Description | Use Case |
 |------|--------|-------------|----------|
-| **Global** | `mode=:global` | Single stats across all values | Related measurements, same scale |
+| **Row-wise** | `mode=:rowwise` **(default for matrices)** | Per-row normalization | Flux.jl convention, time series, per-sample scaling |
 | **Column-wise** | `mode=:columnwise` | Per-column normalization | Multi-target with different units |
-| **Row-wise** | `mode=:rowwise` | Per-row normalization | Time series, per-sample scaling |
+| **Global** | `mode=:global` | Single stats across all values | Related measurements, same scale |
+
+**Note:** Mode parameters (`:rowwise` (default), `:columnwise`, `:global`) only apply to **matrices**. For **vectors**, normalization is always performed globally regardless of the `mode` setting.
 
 ## Usage Examples (Stats-Based Workflow)
 
-### Single-Target Regression
+### Single-Target Regression (Vectors)
 ```julia
 train_labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]
 test_labels = [1.2, 4.8, 6.5]
 
 # Step 1: Compute stats from training data ONLY
+# Note: mode parameter is ignored for vectors
 stats_minmax = compute_normalization_stats(train_labels; method=:minmax, range=(-1, 1))
 stats_zscore = compute_normalization_stats(train_labels; method=:zscore)
 
@@ -102,7 +115,7 @@ predictions_norm = model(X_test)
 predictions_original = denormalize_labels(predictions_norm, stats_minmax)
 ```
 
-### Multi-Target Regression
+### Multi-Target Regression (Matrices)
 ```julia
 # Weather data: [temperature, humidity, pressure]
 weather_train = [20.5 65.0 1013.2; 22.1 58.3 1015.8; 18.9 72.1 1008.9]
@@ -110,6 +123,7 @@ weather_val = [19.8 70.2 1011.5; 23.1 55.0 1018.3]
 weather_test = [21.3 62.1 1014.7; 17.2 75.8 1009.2]
 
 # Step 1: Compute stats ONCE from training data
+# mode parameter applies to matrices - normalize each column separately
 stats = compute_normalization_stats(weather_train; mode=:columnwise, method=:zscore)
 
 # Step 2: Apply SAME stats to all splits
@@ -231,7 +245,7 @@ normalized_data = preprocess_labels(Y_train, Y_val, Y_test)
 
 **Parameters:**
 - `method`: `:minmax` (default) or `:zscore`
-- `mode`: `:global` (default), `:columnwise`, or `:rowwise`  
+- `mode`: `:rowwise` (default for matrices), `:columnwise`, or `:global` (**matrices only** - ignored for vectors)
 - `clip_quantiles`: `(0.01, 0.99)` (default) or `nothing` to disable
 - `range`: `(-1, 1)` (default) for min-max scaling
 
