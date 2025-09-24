@@ -66,23 +66,6 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 
 **Default Mode for Matrices:** The default mode is `:rowwise` since Flux.jl (and many ML frameworks) use the last dimension as the number of data points, making row-wise normalization the most common use case.
 
-## Methods and Modes
-
-
-| Method   | Syntax        | Description                |
-|----------|---------------|----------------------------|
-| **Min-Max** | `method=:minmax, range=(-1,1)` | Scale to specified range    |
-| **Z-Score** | `method=:zscore` | Zero mean, unit variance   |
-
-
-| Mode     | Syntax         | Description                |
-|----------|----------------|----------------------------|
-| **Row-wise** | `mode=:rowwise` **(default for matrices)** | Per-row normalization       |
-| **Column-wise** | `mode=:columnwise` | Per-column normalization  |
-| **Global** | `mode=:global` | Single stats across all values|
-
-**Note:** Mode parameters (`:rowwise` (default), `:columnwise`, `:global`) only apply to **matrices**. For **vectors**, normalization is always performed globally regardless of the `mode` setting.
-
 ## Usage Examples (Stats-Based Workflow)
 
 ### Single-Target Regression (Vectors)
@@ -170,6 +153,22 @@ test_pred_original = denormalize_labels(test_pred_norm, train_stats)
 val_pred_norm = model(X_val)  
 val_pred_original = denormalize_labels(val_pred_norm, train_stats)
 ```
+
+## Methods and Modes
+
+| Method   | Syntax        | Description                |
+|----------|---------------|----------------------------|
+| **Min-Max** | `method=:minmax, range=(-1,1)` | Scale to specified range    |
+| **Z-Score** | `method=:zscore` | Zero mean, unit variance   |
+
+
+| Mode     | Syntax         | Description                |
+|----------|----------------|----------------------------|
+| **Row-wise** | `mode=:rowwise` **(default for matrices)** | Per-row normalization       |
+| **Column-wise** | `mode=:columnwise` | Per-column normalization  |
+| **Global** | `mode=:global` | Single stats across all values|
+
+**Note:** Mode parameters (`:rowwise` (default), `:columnwise`, `:global`) only apply to **matrices**. For **vectors**, normalization is always performed globally regardless of the `mode` setting.
 
 ## API Reference
 
