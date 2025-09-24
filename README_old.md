@@ -54,6 +54,12 @@ This package handles two label formats:
 ---
 
 
+**The Golden Rule:**
+1. **Compute stats from training data ONLY**
+2. **Apply the same stats to validation/test data**  
+3. **Denormalize predictions using the same stats**
+
+
 # Normalization Process
 
 ## Workflow Integration

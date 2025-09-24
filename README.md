@@ -56,11 +56,6 @@ predictions_normalized = model(X_test)  # Model outputs normalized predictions
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
 
-**The Golden Rule:**
-1. **Compute stats from training data ONLY**
-2. **Apply the same stats to validation/test data**  
-3. **Denormalize predictions using the same stats**
-
 ## Supported Data Types and Modes
 
 **Data Types:**
