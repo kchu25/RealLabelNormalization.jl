@@ -9,14 +9,6 @@
 
 Provides robust workflows for normalizing real-valued regression labels while preventing data leakage, handling outliers, and preserving NaNs.
 
-## ⚠️ CRITICAL: Always Use the Stats-Based Workflow
-
-**NEVER** use `normalize_labels()` directly on your full dataset. This causes data leakage! Instead, follow this pattern:
-
-1. **Compute stats from training data ONLY**
-2. **Apply the same stats to validation/test data**  
-3. **Denormalize predictions using the same stats**
-
 ## Why This Package?
 
 ```julia
@@ -136,26 +128,6 @@ val_pred_original = denormalize_labels(model(X_val), stats)
 test_pred_original = denormalize_labels(model(X_test), stats)
 ```
 
-### Cross-Validation with Consistent Stats
-```julia
-# For each CV fold, compute stats on training portion only
-for fold in 1:5
-    train_idx, val_idx = get_cv_indices(fold)
-    
-    # Step 1: Stats computed on training fold only
-    fold_stats = compute_normalization_stats(y_train[train_idx])
-    
-    # Step 2: Apply to both training and validation portions
-    y_train_norm = apply_normalization(y_train[train_idx], fold_stats)
-    y_val_norm = apply_normalization(y_train[val_idx], fold_stats)  # Same stats!
-    
-    # Step 3: Train and validate model
-    model = train_model(X_train[train_idx], y_train_norm)
-    val_pred_norm = model(X_train[val_idx])
-    val_pred_original = denormalize_labels(val_pred_norm, fold_stats)
-end
-```
-
 ### Handling Missing Data
 ```julia
 train_with_nan = [1.0, 2.0, NaN, 4.0, 5.0, 100.0]
@@ -171,19 +143,9 @@ test_norm = apply_normalization(test_with_nan, stats)    # NaNs preserved, same 
 # Step 3: Denormalize predictions using SAME stats
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
-
-## Key Features
-
-- **Prevents data leakage**: Stats computed from training data, applied consistently to val/test
-- **Outlier handling**: Configurable quantile-based clipping (default: 1%-99%)
-- **NaN preservation**: Statistics skip NaNs, output preserves NaN positions
-- **Multi-target support**: Handle matrices with global/column/row-wise modes  
-- **Complete workflow**: Compute once, apply everywhere, denormalize predictions
-- **Simple API**: Three-step pattern for bulletproof normalization
-
 ## Integration with ML Frameworks
 
-### Flux.jl - Complete Workflow
+### Flux.jl - Workflow
 ```julia
 using Flux
 
@@ -210,27 +172,6 @@ test_pred_original = denormalize_labels(test_pred_norm, train_stats)
 # Validation predictions also use the same stats
 val_pred_norm = model(X_val)  
 val_pred_original = denormalize_labels(val_pred_norm, train_stats)
-```
-
-### MLJ.jl Pattern
-```julia
-# In your MLJ machine/model pipeline
-function preprocess_labels(Y_train, Y_val, Y_test)
-    # Compute stats only from training data
-    stats = compute_normalization_stats(Y_train; method=:zscore, mode=:columnwise)
-    
-    # Apply consistently across all splits
-    return (
-        train = apply_normalization(Y_train, stats),
-        val = apply_normalization(Y_val, stats),
-        test = apply_normalization(Y_test, stats),
-        stats = stats  # Store for later denormalization
-    )
-end
-
-normalized_data = preprocess_labels(Y_train, Y_val, Y_test)
-# Train with normalized_data.train, validate with normalized_data.val
-# Denormalize predictions: denormalize_labels(predictions, normalized_data.stats)
 ```
 
 ## API Reference

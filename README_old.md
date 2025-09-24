@@ -15,6 +15,15 @@
 - [Why This Package?](#why-reallabelnormalizationjl)
 
 
+## ⚠️ CRITICAL: Always Use the Stats-Based Workflow
+
+**NEVER** use `normalize_labels()` directly on your full dataset. This causes data leakage! Instead, follow this pattern:
+
+1. **Compute stats from training data ONLY**
+2. **Apply the same stats to validation/test data**  
+3. **Denormalize predictions using the same stats**
+
+
 # Motivation 
 Avoiding data leakage (computing stats on the training set only), clipping outliers, and handling NaNs isn’t hard — but it’s tedious, especially when you end up reinventing the same workflow for every dataset (often with tools like [MLUtils.jl](https://github.com/JuliaML/MLUtils.jl)). This package provides robust normalization of real-valued labels for regression tasks with built-in outlier handling and NaN support, ensuring consistent, leak-free preprocessing across train/validation/test splits.
 
@@ -148,6 +157,61 @@ weather_data = [
 # Normalize each target independently
 normalized = normalize_labels(weather_data; mode=:columnwise)
 ```
+
+### Cross-Validation with Consistent Stats
+```julia
+# For each CV fold, compute stats on training portion only
+for fold in 1:5
+    train_idx, val_idx = get_cv_indices(fold)
+    
+    # Step 1: Stats computed on training fold only
+    fold_stats = compute_normalization_stats(y_train[train_idx])
+    
+    # Step 2: Apply to both training and validation portions
+    y_train_norm = apply_normalization(y_train[train_idx], fold_stats)
+    y_val_norm = apply_normalization(y_train[val_idx], fold_stats)  # Same stats!
+    
+    # Step 3: Train and validate model
+    model = train_model(X_train[train_idx], y_train_norm)
+    val_pred_norm = model(X_train[val_idx])
+    val_pred_original = denormalize_labels(val_pred_norm, fold_stats)
+end
+```
+
+
+### MLJ.jl Pattern
+```julia
+# In your MLJ machine/model pipeline
+function preprocess_labels(Y_train, Y_val, Y_test)
+    # Compute stats only from training data
+    stats = compute_normalization_stats(Y_train; method=:zscore, mode=:columnwise)
+    
+    # Apply consistently across all splits
+    return (
+        train = apply_normalization(Y_train, stats),
+        val = apply_normalization(Y_val, stats),
+        test = apply_normalization(Y_test, stats),
+        stats = stats  # Store for later denormalization
+    )
+end
+
+normalized_data = preprocess_labels(Y_train, Y_val, Y_test)
+# Train with normalized_data.train, validate with normalized_data.val
+# Denormalize predictions: denormalize_labels(predictions, normalized_data.stats)
+```
+
+
+
+
+## Key Features
+
+- **Prevents data leakage**: Stats computed from training data, applied consistently to val/test
+- **Outlier handling**: Configurable quantile-based clipping (default: 1%-99%)
+- **NaN preservation**: Statistics skip NaNs, output preserves NaN positions
+- **Multi-target support**: Handle matrices with global/column/row-wise modes  
+- **Complete workflow**: Compute once, apply everywhere, denormalize predictions
+- **Simple API**: Three-step pattern for bulletproof normalization
+
 
 ## Features
 
