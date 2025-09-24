@@ -62,7 +62,7 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 - **Vectors**: Single-target regression (e.g., `[1.0, 2.0, 3.0]`)
 - **Matrices**: Multi-target regression (e.g., `[1.0 2.0; 3.0 4.0]`)
 
-**Important:** The `mode` parameter only applies to **matrices**. For **vectors**, the `mode` argument is ignored and normalization is always applied globally across all elements.
+**Note:** For `compute_normalization_stats`, the `mode` parameter only applies to matrices; the `mode` argument is ignored for vectors and normalization is always applied globally across all elements.
 
 **Default Mode for Matrices:** The default mode is `:rowwise` since Flux.jl (and many ML frameworks) use the last dimension as the number of data points, making row-wise normalization the most common use case.
 
@@ -153,6 +153,7 @@ test_pred_original = denormalize_labels(test_pred_norm, train_stats)
 val_pred_norm = model(X_val)  
 val_pred_original = denormalize_labels(val_pred_norm, train_stats)
 ```
+
 
 ## Methods and Modes
 
