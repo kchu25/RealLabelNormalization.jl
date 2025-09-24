@@ -68,16 +68,18 @@ predictions_original = denormalize_labels(predictions_normalized, stats)
 
 ## Methods and Modes
 
-| Method | Syntax | Description | Best For |
-|--------|--------|-------------|----------|
-| **Min-Max** | `method=:minmax, range=(-1,1)` | Scale to specified range | Neural networks, bounded outputs |
-| **Z-Score** | `method=:zscore` | Zero mean, unit variance | Linear models, normally distributed data |
 
-| Mode | Syntax | Description | Use Case |
-|------|--------|-------------|----------|
-| **Row-wise** | `mode=:rowwise` **(default for matrices)** | Per-row normalization | Flux.jl convention, time series, per-sample scaling |
-| **Column-wise** | `mode=:columnwise` | Per-column normalization | Multi-target with different units |
-| **Global** | `mode=:global` | Single stats across all values | Related measurements, same scale |
+| Method   | Syntax        | Description                |
+|----------|---------------|----------------------------|
+| **Min-Max** | `method=:minmax, range=(-1,1)` | Scale to specified range    |
+| **Z-Score** | `method=:zscore` | Zero mean, unit variance   |
+
+
+| Mode     | Syntax         | Description                |
+|----------|----------------|----------------------------|
+| **Row-wise** | `mode=:rowwise` **(default for matrices)** | Per-row normalization       |
+| **Column-wise** | `mode=:columnwise` | Per-column normalization  |
+| **Global** | `mode=:global` | Single stats across all values|
 
 **Note:** Mode parameters (`:rowwise` (default), `:columnwise`, `:global`) only apply to **matrices**. For **vectors**, normalization is always performed globally regardless of the `mode` setting.
 
