@@ -211,7 +211,7 @@ function _apply_zscore_normalization(labels::AbstractArray, stats::NamedTuple)
             if sigma == 0
                 normalized[:, col] .= 0
             else
-                normalized[:, col] = (labels[:, col] .- mu) ./ sigma
+                normalized[:, col] = @views (labels[:, col] .- mu) ./ sigma
             end
         end
         return normalized
@@ -222,7 +222,7 @@ function _apply_zscore_normalization(labels::AbstractArray, stats::NamedTuple)
             if sigma == 0
                 normalized[row, :] .= 0
             else
-                normalized[row, :] = (labels[row, :] .- mu) ./ sigma
+                normalized[row, :] = @views (labels[row, :] .- mu) ./ sigma
             end
         end
         return normalized
