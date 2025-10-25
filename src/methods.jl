@@ -63,7 +63,7 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
         end
         # Scale from [0,1] to target range
         return _scale_to_range(normalized_01, range)
-    else # :zscore
+    elseif method == :zscore
         mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         if isnan(mu) || isnan(sigma)
             @warn "Cannot compute z-score with NaN statistics, returning NaN array"
@@ -74,6 +74,27 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
             return zeros(eltype(labels), size(labels))
         end
         return (labels .- mu) ./ sigma
+    else # :log
+        # Compute offset to ensure all values are positive
+        valid_data = filter(!isnan, labels)
+        if isempty(valid_data)
+            if warn_on_nan
+                @warn "All values are NaN, cannot apply log normalization"
+            end
+            return fill(NaN, size(labels))
+        end
+        min_val = minimum(valid_data)
+        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        # Apply log transformation
+        result = similar(labels)
+        for i in eachindex(labels)
+            if isnan(labels[i])
+                result[i] = NaN
+            else
+                result[i] = log(labels[i] + offset)
+            end
+        end
+        return result
     end
 end
 
@@ -86,7 +107,7 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
         end
         # Scale from [0,1] to target range
         return _scale_to_range(normalized_01, range)
-    else # :zscore
+    elseif method == :zscore
         mu, sigma = _safe_mean_std(labels)
         if isnan(mu) || isnan(sigma)
             @warn "Cannot compute z-score with NaN statistics, returning NaN array"
@@ -97,6 +118,25 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
             return zeros(eltype(labels), size(labels))
         end
         return (labels .- mu) ./ sigma
+    else # :log
+        # Compute offset to ensure all values are positive
+        valid_data = filter(!isnan, vec(labels))
+        if isempty(valid_data)
+            @warn "All values are NaN, cannot apply log normalization"
+            return fill(NaN, size(labels))
+        end
+        min_val = minimum(valid_data)
+        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        # Apply log transformation
+        result = similar(labels)
+        for i in eachindex(labels)
+            if isnan(labels[i])
+                result[i] = NaN
+            else
+                result[i] = log(labels[i] + offset)
+            end
+        end
+        return result
     end
 end
 
@@ -113,7 +153,7 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
             else
                 normalized[:, col] = _scale_to_range(normalized_01, range)
             end
-        else # :zscore
+        elseif method == :zscore
             mu, sigma = _safe_mean_std(column_data)
             if isnan(mu) || isnan(sigma)
                 @warn "Column $col has all NaN values, setting to NaN"
@@ -123,6 +163,22 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
                 normalized[:, col] .= 0
             else
                 normalized[:, col] = (column_data .- mu) ./ sigma
+            end
+        else # :log
+            valid_data = filter(!isnan, column_data)
+            if isempty(valid_data)
+                @warn "Column $col has all NaN values, setting to NaN"
+                normalized[:, col] .= NaN
+            else
+                min_val = minimum(valid_data)
+                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                for i in eachindex(column_data)
+                    if isnan(column_data[i])
+                        normalized[i, col] = NaN
+                    else
+                        normalized[i, col] = log(column_data[i] + offset)
+                    end
+                end
             end
         end
     end
@@ -142,7 +198,7 @@ function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple
             else
                 normalized[row, :] = _scale_to_range(normalized_01, range)
             end
-        else # :zscore
+        elseif method == :zscore
             mu, sigma = _safe_mean_std(row_data; warn_on_nan=warn_on_nan)
             if isnan(mu) || isnan(sigma)
                 @warn "Row $row has all NaN values, setting to NaN"
@@ -152,6 +208,24 @@ function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple
                 normalized[row, :] .= 0
             else
                 normalized[row, :] = (row_data .- mu) ./ sigma
+            end
+        else # :log
+            valid_data = filter(!isnan, row_data)
+            if isempty(valid_data)
+                if warn_on_nan
+                    @warn "Row $row has all NaN values, setting to NaN"
+                end
+                normalized[row, :] .= NaN
+            else
+                min_val = minimum(valid_data)
+                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                for i in eachindex(row_data)
+                    if isnan(row_data[i])
+                        normalized[row, i] = NaN
+                    else
+                        normalized[row, i] = log(row_data[i] + offset)
+                    end
+                end
             end
         end
     end
@@ -229,6 +303,47 @@ function _apply_zscore_normalization(labels::AbstractArray, stats::NamedTuple)
     end
 end
 
+function _apply_log_normalization(labels::AbstractArray, stats::NamedTuple)
+    if stats.mode == :vector || stats.mode == :global
+        offset = stats.offset
+        result = similar(labels)
+        for i in eachindex(labels)
+            if isnan(labels[i])
+                result[i] = NaN
+            else
+                result[i] = log(labels[i] + offset)
+            end
+        end
+        return result
+    elseif stats.mode == :columnwise
+        normalized = similar(labels)
+        for col in axes(labels, 2)
+            offset = stats.offsets[col]
+            for i in axes(labels, 1)
+                if isnan(labels[i, col])
+                    normalized[i, col] = NaN
+                else
+                    normalized[i, col] = log(labels[i, col] + offset)
+                end
+            end
+        end
+        return normalized
+    else # :rowwise
+        normalized = similar(labels)
+        for row in axes(labels, 1)
+            offset = stats.offsets[row]
+            for i in axes(labels, 2)
+                if isnan(labels[row, i])
+                    normalized[row, i] = NaN
+                else
+                    normalized[row, i] = log(labels[row, i] + offset)
+                end
+            end
+        end
+        return normalized
+    end
+end
+
 # Denormalization helpers
 
 function _denormalize_minmax(normalized_labels::AbstractArray, stats::NamedTuple)
@@ -295,6 +410,47 @@ function _denormalize_zscore(normalized_labels::AbstractArray, stats::NamedTuple
                 denormalized[row, :] .= mu
             else
                 denormalized[row, :] = @. (@view normalized_labels[row, :]) * sigma + mu
+            end
+        end
+        return denormalized
+    end
+end
+
+function _denormalize_log(normalized_labels::AbstractArray, stats::NamedTuple)
+    if stats.mode == :vector || stats.mode == :global
+        offset = stats.offset
+        result = similar(normalized_labels)
+        for i in eachindex(normalized_labels)
+            if isnan(normalized_labels[i])
+                result[i] = NaN
+            else
+                result[i] = exp(normalized_labels[i]) - offset
+            end
+        end
+        return result
+    elseif stats.mode == :columnwise
+        denormalized = similar(normalized_labels)
+        for col in axes(normalized_labels, 2)
+            offset = stats.offsets[col]
+            for i in axes(normalized_labels, 1)
+                if isnan(normalized_labels[i, col])
+                    denormalized[i, col] = NaN
+                else
+                    denormalized[i, col] = exp(normalized_labels[i, col]) - offset
+                end
+            end
+        end
+        return denormalized
+    else # :rowwise
+        denormalized = similar(normalized_labels)
+        for row in axes(normalized_labels, 1)
+            offset = stats.offsets[row]
+            for i in axes(normalized_labels, 2)
+                if isnan(normalized_labels[row, i])
+                    denormalized[row, i] = NaN
+                else
+                    denormalized[row, i] = exp(normalized_labels[row, i]) - offset
+                end
             end
         end
         return denormalized

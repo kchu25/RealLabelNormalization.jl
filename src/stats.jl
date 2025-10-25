@@ -51,7 +51,7 @@ function _compute_stats_vector(
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
-    else # :zscore
+    elseif method == :zscore
         mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         mu, sigma = convert(T, mu), convert(T, sigma)
         return (
@@ -59,6 +59,30 @@ function _compute_stats_vector(
             mean=mu, 
             std=sigma, 
             mode=:vector, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds
+        )
+    else # :log
+        valid_data = filter(!isnan, labels)
+        if isempty(valid_data)
+            if warn_on_nan
+                @warn "All values are NaN, cannot compute log normalization statistics"
+            end
+            return (
+                method=:log,
+                offset=convert(T, NaN),
+                mode=:vector,
+                clip_quantiles=clip_quantiles,
+                clip_bounds=clip_bounds
+            )
+        end
+        min_val = minimum(valid_data)
+        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        offset = convert(T, offset)
+        return (
+            method=:log,
+            offset=offset,
+            mode=:vector,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
@@ -96,7 +120,7 @@ function _compute_stats_global(
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
-    else # :zscore
+    elseif method == :zscore
         mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         mu, sigma = convert(T, mu), convert(T, sigma)
         return (
@@ -104,6 +128,30 @@ function _compute_stats_global(
             mean=mu, 
             std=sigma, 
             mode=:global, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds
+        )
+    else # :log
+        valid_data = filter(!isnan, vec(labels))
+        if isempty(valid_data)
+            if warn_on_nan
+                @warn "All values are NaN, cannot compute log normalization statistics"
+            end
+            return (
+                method=:log,
+                offset=convert(T, NaN),
+                mode=:global,
+                clip_quantiles=clip_quantiles,
+                clip_bounds=clip_bounds
+            )
+        end
+        min_val = minimum(valid_data)
+        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        offset = convert(T, offset)
+        return (
+            method=:log,
+            offset=offset,
+            mode=:global,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
@@ -154,7 +202,7 @@ function _compute_stats_columnwise(
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
-    else # :zscore
+    elseif method == :zscore
         means = T[]
         stds = T[]
         for col in 1:n_cols
@@ -168,6 +216,28 @@ function _compute_stats_columnwise(
             means=means, 
             stds=stds, 
             mode=:columnwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds
+        )
+    else # :log
+        offsets = T[]
+        for col in 1:n_cols
+            valid_data = filter(!isnan, labels[:, col])
+            if isempty(valid_data)
+                if warn_on_nan
+                    @warn "Column $col has all NaN values, cannot compute log normalization statistics"
+                end
+                push!(offsets, convert(T, NaN))
+            else
+                min_val = minimum(valid_data)
+                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                push!(offsets, convert(T, offset))
+            end
+        end
+        return (
+            method=:log,
+            offsets=offsets,
+            mode=:columnwise,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
@@ -217,7 +287,7 @@ function _compute_stats_rowwise(
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )
-    else # :zscore
+    elseif method == :zscore
         means = T[]
         stds = T[]
         for row in 1:n_rows
@@ -231,6 +301,28 @@ function _compute_stats_rowwise(
             means=means, 
             stds=stds, 
             mode=:rowwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds
+        )
+    else # :log
+        offsets = T[]
+        for row in 1:n_rows
+            valid_data = filter(!isnan, labels[row, :])
+            if isempty(valid_data)
+                if warn_on_nan
+                    @warn "Row $row has all NaN values, cannot compute log normalization statistics"
+                end
+                push!(offsets, convert(T, NaN))
+            else
+                min_val = minimum(valid_data)
+                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                push!(offsets, convert(T, offset))
+            end
+        end
+        return (
+            method=:log,
+            offsets=offsets,
+            mode=:rowwise,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds
         )

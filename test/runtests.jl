@@ -1005,6 +1005,9 @@ using Statistics
             # Test z-score with range warning
             @test_logs (:warn,) RealLabelNormalization.normalize_labels([1.0,2.0,3.0]; method=:zscore, range=(0,1))
             
+            # Test log with range warning
+            @test_logs (:warn,) RealLabelNormalization.normalize_labels([1.0,2.0,3.0]; method=:log, range=(0,1))
+            
             # Test clip_quantiles validation
             @test_throws ArgumentError RealLabelNormalization.normalize_labels([1.0,2.0,3.0]; clip_quantiles=(0.5, 0.5))  # equal values
             @test_throws ArgumentError RealLabelNormalization.normalize_labels([1.0,2.0,3.0]; clip_quantiles=(0.0, 0.0))  # both zero
@@ -1104,6 +1107,14 @@ using Statistics
             @test haskey(stats_zscore, :clip_quantiles)
             @test stats_zscore.method == :zscore
             
+            # Test log stats structure
+            stats_log = RealLabelNormalization.compute_normalization_stats(data; method=:log)
+            @test haskey(stats_log, :method)
+            @test haskey(stats_log, :mode)
+            @test haskey(stats_log, :clip_quantiles)
+            @test haskey(stats_log, :offset)
+            @test stats_log.method == :log
+            
             # Test columnwise stats structure
             matrix_data = [1.0 2.0; 3.0 4.0; 5.0 6.0]
             stats_col = RealLabelNormalization.compute_normalization_stats(matrix_data; method=:minmax, mode=:columnwise)
@@ -1128,6 +1139,11 @@ using Statistics
             @test length(direct_result_z) == length(data)
             @test abs(mean(direct_result_z)) < 1e-10
             @test abs(std(direct_result_z) - 1.0) < 1e-10
+            
+            # Test log method
+            direct_result_log = RealLabelNormalization.normalize_labels(data; method=:log)
+            @test length(direct_result_log) == length(data)
+            @test all(isfinite, direct_result_log)
             
             # Test matrix data - use vector mode to avoid warn_on_nan parameter issue
             matrix_data = [1.0 2.0; 3.0 4.0; 5.0 6.0]
@@ -1162,6 +1178,236 @@ using Statistics
             # Should not warn when disabled
             @test_logs RealLabelNormalization.normalize_labels(data_with_nan; warn_on_nan=false)
             @test_logs RealLabelNormalization.compute_normalization_stats(data_with_nan; warn_on_nan=false)
+        end
+    end
+
+    @testset "Log Normalization Tests" begin
+        @testset "Ground Truth Verification - Log Normalization" begin
+            # Test with positive values
+            labels = [1.0, 2.0, 4.0, 8.0, 16.0]
+            
+            # Manual calculation for log normalization (no offset needed since all positive)
+            expected_log = log.([1.0, 2.0, 4.0, 8.0, 16.0])
+            
+            stats = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            @test isapprox(normalized, expected_log, atol=1e-10)
+            @test stats.offset == 0.0  # No offset needed for positive values
+            
+            # Test with negative values (offset required)
+            labels_neg = [-5.0, -3.0, -1.0, 1.0, 3.0]
+            stats_neg = compute_normalization_stats(labels_neg; method=:log, clip_quantiles=nothing)
+            
+            # Offset should be abs(min_val) + 1 = abs(-5.0) + 1 = 6.0
+            @test stats_neg.offset == 6.0
+            
+            # Manual calculation with offset
+            expected_log_neg = log.(labels_neg .+ 6.0)
+            normalized_neg = apply_normalization(labels_neg, stats_neg)
+            @test isapprox(normalized_neg, expected_log_neg, atol=1e-10)
+            
+            # Test with values including zero
+            labels_zero = [0.0, 1.0, 2.0, 3.0, 4.0]
+            stats_zero = compute_normalization_stats(labels_zero; method=:log, clip_quantiles=nothing)
+            
+            # Offset should be 1.0 (since min_val = 0)
+            @test stats_zero.offset == 1.0
+            expected_log_zero = log.(labels_zero .+ 1.0)
+            normalized_zero = apply_normalization(labels_zero, stats_zero)
+            @test isapprox(normalized_zero, expected_log_zero, atol=1e-10)
+        end
+        
+        @testset "Log Normalization Round-trip" begin
+            # Test perfect round-trip without clipping - positive values
+            labels_pos = [1.0, 2.0, 3.0, 4.0, 5.0]
+            stats_pos = compute_normalization_stats(labels_pos; method=:log, clip_quantiles=nothing)
+            normalized_pos = apply_normalization(labels_pos, stats_pos)
+            denormalized_pos = denormalize_labels(normalized_pos, stats_pos)
+            
+            @test isapprox(labels_pos, denormalized_pos, atol=1e-10)
+            
+            # Test round-trip with negative values
+            labels_neg = [-10.0, -5.0, 0.0, 5.0, 10.0]
+            stats_neg = compute_normalization_stats(labels_neg; method=:log, clip_quantiles=nothing)
+            normalized_neg = apply_normalization(labels_neg, stats_neg)
+            denormalized_neg = denormalize_labels(normalized_neg, stats_neg)
+            
+            @test isapprox(labels_neg, denormalized_neg, atol=1e-10)
+            
+            # Test round-trip with very small positive values
+            labels_small = [0.001, 0.01, 0.1, 1.0, 10.0]
+            stats_small = compute_normalization_stats(labels_small; method=:log, clip_quantiles=nothing)
+            normalized_small = apply_normalization(labels_small, stats_small)
+            denormalized_small = denormalize_labels(normalized_small, stats_small)
+            
+            @test isapprox(labels_small, denormalized_small, atol=1e-10)
+        end
+        
+        @testset "Log Normalization NaN Handling" begin
+            # Test with some NaN values
+            labels_with_nan = [1.0, NaN, 3.0, 4.0, NaN, 5.0]
+            stats = compute_normalization_stats(labels_with_nan; method=:log, clip_quantiles=nothing)
+            normalized = apply_normalization(labels_with_nan, stats)
+            denormalized = denormalize_labels(normalized, stats)
+            
+            # Essential tests for NaN handling
+            @test sum(isnan.(normalized)) == 2  # NaNs preserved in output
+            @test sum(isnan.(denormalized)) == 2  # NaNs preserved after round-trip
+            
+            # Valid values should still normalize correctly
+            valid_mask = .!isnan.(labels_with_nan)
+            @test all(isfinite, normalized[valid_mask])  # Valid values should be finite
+            @test isapprox(labels_with_nan[valid_mask], denormalized[valid_mask], atol=1e-10)  # Round-trip works
+            
+            # Test all NaN data
+            all_nan = [NaN, NaN, NaN]
+            stats_all_nan = compute_normalization_stats(all_nan; method=:log, clip_quantiles=nothing)
+            normalized_all_nan = apply_normalization(all_nan, stats_all_nan)
+            
+            @test all(isnan.(normalized_all_nan))
+            @test isnan(stats_all_nan.offset)
+        end
+        
+        @testset "Log Normalization Multi-output Labels" begin
+            # Test matrix labels - global mode
+            matrix_labels = [1.0 10.0; 2.0 20.0; 4.0 40.0; 8.0 80.0]
+            
+            stats_global = compute_normalization_stats(matrix_labels; method=:log, mode=:global, clip_quantiles=nothing)
+            normalized_global = apply_normalization(matrix_labels, stats_global)
+            denormalized_global = denormalize_labels(normalized_global, stats_global)
+            
+            @test size(normalized_global) == size(matrix_labels)
+            @test isapprox(matrix_labels, denormalized_global, atol=1e-10)
+            
+            # Test matrix labels - columnwise mode
+            stats_col = compute_normalization_stats(matrix_labels; method=:log, mode=:columnwise, clip_quantiles=nothing)
+            normalized_col = apply_normalization(matrix_labels, stats_col)
+            denormalized_col = denormalize_labels(normalized_col, stats_col)
+            
+            @test size(normalized_col) == size(matrix_labels)
+            @test isapprox(matrix_labels, denormalized_col, atol=1e-10)
+            @test length(stats_col.offsets) == size(matrix_labels, 2)
+            
+            # Test matrix labels - rowwise mode
+            stats_row = compute_normalization_stats(matrix_labels; method=:log, mode=:rowwise, clip_quantiles=nothing)
+            normalized_row = apply_normalization(matrix_labels, stats_row)
+            denormalized_row = denormalize_labels(normalized_row, stats_row)
+            
+            @test size(normalized_row) == size(matrix_labels)
+            @test isapprox(matrix_labels, denormalized_row, atol=1e-10)
+            @test length(stats_row.offsets) == size(matrix_labels, 1)
+            
+            # Test matrix with NaN values
+            matrix_with_nan = [1.0 NaN; 3.0 4.0; NaN 6.0]
+            matrix_stats = compute_normalization_stats(matrix_with_nan; method=:log, mode=:columnwise, clip_quantiles=nothing)
+            matrix_normalized = apply_normalization(matrix_with_nan, matrix_stats)
+            
+            @test sum(isnan.(matrix_normalized)) == 2  # NaN count preserved
+            @test size(matrix_normalized) == size(matrix_with_nan)  # Shape preserved
+        end
+        
+        @testset "Log Normalization Edge Cases" begin
+            # Test single value
+            single_value = [3.14]
+            stats_single = compute_normalization_stats(single_value; method=:log, clip_quantiles=nothing)
+            normalized_single = apply_normalization(single_value, stats_single)
+            denormalized_single = denormalize_labels(normalized_single, stats_single)
+            
+            @test normalized_single[1] ≈ log(3.14) atol=1e-10
+            @test denormalized_single[1] ≈ 3.14 atol=1e-10
+            
+            # Test constant values
+            constant_labels = [5.0, 5.0, 5.0, 5.0]
+            stats_constant = compute_normalization_stats(constant_labels; method=:log, clip_quantiles=nothing)
+            normalized_constant = apply_normalization(constant_labels, stats_constant)
+            denormalized_constant = denormalize_labels(normalized_constant, stats_constant)
+            
+            @test all(x ≈ log(5.0) for x in normalized_constant)
+            @test isapprox(constant_labels, denormalized_constant, atol=1e-10)
+            
+            # Test very large values
+            large_values = [1e6, 1e7, 1e8, 1e9]
+            stats_large = compute_normalization_stats(large_values; method=:log, clip_quantiles=nothing)
+            normalized_large = apply_normalization(large_values, stats_large)
+            denormalized_large = denormalize_labels(normalized_large, stats_large)
+            
+            @test all(isfinite, normalized_large)
+            @test isapprox(large_values, denormalized_large, rtol=1e-10)
+        end
+        
+        @testset "Log Normalization with Outliers" begin
+            # Test with outliers and clipping
+            data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 1000.0]  # 1000 is outlier
+            
+            # Test without clipping
+            stats_no_clip = compute_normalization_stats(data; method=:log, clip_quantiles=nothing)
+            normalized_no_clip = apply_normalization(data, stats_no_clip)
+            denormalized_no_clip = denormalize_labels(normalized_no_clip, stats_no_clip)
+            
+            # Test with clipping
+            stats_with_clip = compute_normalization_stats(data; method=:log, clip_quantiles=(0.1, 0.9))
+            normalized_with_clip = apply_normalization(data, stats_with_clip)
+            denormalized_with_clip = denormalize_labels(normalized_with_clip, stats_with_clip)
+            
+            # Clipping should reduce the range of the denormalized data
+            @test (maximum(denormalized_with_clip) - minimum(denormalized_with_clip)) < 
+                  (maximum(denormalized_no_clip) - minimum(denormalized_no_clip))
+            
+            # The outlier should be clipped
+            @test denormalized_with_clip[end] < 100.0
+        end
+        
+        @testset "Log Normalization Columnwise and Rowwise" begin
+            # Test matrix with different scales per column
+            matrix_labels = [1.0 100.0; 2.0 200.0; 3.0 300.0; 4.0 400.0]
+            
+            # Columnwise normalization
+            stats_col = compute_normalization_stats(matrix_labels; method=:log, mode=:columnwise, clip_quantiles=nothing)
+            normalized_col = apply_normalization(matrix_labels, stats_col)
+            denormalized_col = denormalize_labels(normalized_col, stats_col)
+            
+            @test length(stats_col.offsets) == 2
+            @test all(stats_col.offsets .== 0.0)  # All positive, so no offset needed
+            @test isapprox(matrix_labels, denormalized_col, atol=1e-10)
+            
+            # Each column should be log-transformed independently
+            @test normalized_col[:, 1] ≈ log.([1.0, 2.0, 3.0, 4.0]) atol=1e-10
+            @test normalized_col[:, 2] ≈ log.([100.0, 200.0, 300.0, 400.0]) atol=1e-10
+            
+            # Rowwise normalization
+            matrix_row = [1.0 2.0 3.0; 10.0 20.0 30.0; -5.0 0.0 5.0]
+            stats_row = compute_normalization_stats(matrix_row; method=:log, mode=:rowwise, clip_quantiles=nothing)
+            normalized_row = apply_normalization(matrix_row, stats_row)
+            denormalized_row = denormalize_labels(normalized_row, stats_row)
+            
+            @test length(stats_row.offsets) == 3
+            @test stats_row.offsets[1] == 0.0  # Row 1: all positive
+            @test stats_row.offsets[2] == 0.0  # Row 2: all positive
+            @test stats_row.offsets[3] == 6.0  # Row 3: min = -5, offset = 6
+            @test isapprox(matrix_row, denormalized_row, atol=1e-10)
+        end
+        
+        @testset "Log Normalization Properties" begin
+            # Test monotonicity preservation
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            stats = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Log is monotone increasing, so order should be preserved
+            @test issorted(normalized)
+            
+            # Test that log compresses large values more than small values
+            labels_wide_range = [1.0, 10.0, 100.0, 1000.0]
+            stats_wide = compute_normalization_stats(labels_wide_range; method=:log, clip_quantiles=nothing)
+            normalized_wide = apply_normalization(labels_wide_range, stats_wide)
+            
+            # Differences in log space should be more uniform than in original space
+            original_diffs = diff(labels_wide_range)
+            log_diffs = diff(normalized_wide)
+            
+            # Log differences should be more similar to each other than original differences
+            @test std(log_diffs) < std(original_diffs)
         end
     end    
 end

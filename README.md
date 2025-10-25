@@ -77,10 +77,15 @@ test_labels = [1.2, 4.8, 6.5]
 # Note: mode parameter is ignored for vectors
 stats_minmax = compute_normalization_stats(train_labels; method=:minmax, range=(-1, 1))
 stats_zscore = compute_normalization_stats(train_labels; method=:zscore)
+stats_log = compute_normalization_stats(train_labels; method=:log)
 
 # Step 2: Apply SAME stats to both training and test
 train_norm = apply_normalization(train_labels, stats_minmax)
 test_norm = apply_normalization(test_labels, stats_minmax)  # Same stats!
+
+# Log normalization is especially useful for skewed distributions
+train_log = apply_normalization(train_labels, stats_log)
+test_log = apply_normalization(test_labels, stats_log)
 
 # Step 3: Denormalize predictions using SAME stats
 predictions_norm = model(X_test)
@@ -123,6 +128,37 @@ test_norm = apply_normalization(test_with_nan, stats)    # NaNs preserved, same 
 # Step 3: Denormalize predictions using SAME stats
 predictions_original = denormalize_labels(predictions_normalized, stats)
 ```
+
+### Log Normalization for Skewed Distributions
+```julia
+# Log normalization is particularly useful for highly skewed data
+# (e.g., exponential distributions, power-law distributions)
+
+# Example: Income data (highly skewed)
+income_train = [20000.0, 35000.0, 50000.0, 65000.0, 80000.0, 1000000.0]  # Outlier
+income_test = [25000.0, 45000.0, 55000.0]
+
+# Step 1: Compute log normalization stats
+# Automatically handles negative values if present
+stats_log = compute_normalization_stats(income_train; method=:log, clip_quantiles=(0.01, 0.99))
+
+# Step 2: Apply log transformation (compresses large values)
+train_log = apply_normalization(income_train, stats_log)
+test_log = apply_normalization(income_test, stats_log)
+
+# Step 3: Train model on log-transformed data
+# model = train(X_train, train_log)
+
+# Step 4: Denormalize predictions back to original scale
+predictions_log = model(X_test)
+predictions_original = denormalize_labels(predictions_log, stats_log)
+
+# Log normalization works with negative values too!
+data_with_negatives = [-10.0, -5.0, 0.0, 5.0, 10.0, 100.0]
+stats_neg = compute_normalization_stats(data_with_negatives; method=:log)
+# Automatically adds offset to make all values positive before log transform
+```
+
 ## Integration with ML Frameworks
 
 ### Flux.jl - Workflow
@@ -161,6 +197,7 @@ val_pred_original = denormalize_labels(val_pred_norm, train_stats)
 |----------|---------------|----------------------------|
 | **Min-Max** | `method=:minmax, range=(-1,1)` | Scale to specified range    |
 | **Z-Score** | `method=:zscore` | Zero mean, unit variance   |
+| **Log** | `method=:log` | Log transformation (handles negative values with automatic offset) |
 
 
 | Mode     | Syntax         | Description                |

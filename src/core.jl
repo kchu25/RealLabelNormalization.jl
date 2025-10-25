@@ -11,10 +11,12 @@ in statistical computations and preserving them in the output.
 - `method::Symbol`: Normalization method
   - `:minmax`: Min-max normalization (default)
   - `:zscore`: Z-score normalization (mean=0, std=1)
+  - `:log`: Log normalization (log-transform with automatic offset for non-positive values)
 - `range::Tuple{Real,Real}`: Target range for min-max normalization (default: (-1, 1))
   - `(-1, 1)`: Scaled min-max to `[-1,1]` (default)
   - `(0, 1)`: Standard min-max to [0,1]
   - Custom ranges: e.g., `(-2, 2)`
+  - Note: Ignored for :zscore and :log methods
 - `mode::Symbol`: Normalization scope
   - `:global`: Normalize across all values (default)
   - `:columnwise`: Normalize each column independently
@@ -46,6 +48,9 @@ normalized = normalize_labels(labels; range=(0, 1))
 # Z-score normalization with outlier clipping
 normalized = normalize_labels(labels; method=:zscore)
 
+# Log normalization (useful for skewed distributions)
+normalized = normalize_labels(labels; method=:log)
+
 # Matrix labels (multi-target)
 labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0; 1000.0 5.0]  # Outlier in col 1
 
@@ -66,14 +71,17 @@ function normalize_labels(labels::AbstractArray;
                          clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
                          warn_on_nan::Bool=true)
     # Input validation
-    if method ∉ [:minmax, :zscore]
-        throw(ArgumentError("method must be :minmax or :zscore, got :$method"))
+    if method ∉ [:minmax, :zscore, :log]
+        throw(ArgumentError("method must be :minmax, :zscore, or :log, got :$method"))
     end
     if mode ∉ [:global, :columnwise, :rowwise]
         throw(ArgumentError("mode must be :global, :columnwise, or :rowwise, got :$mode"))
     end
     if method == :zscore && range != (-1, 1)
         @warn "range parameter input $range is ignored for z-score normalization (produces mean=0, std=1, e.g. ~[-3,3] range)"
+    end
+    if method == :log && range != (-1, 1)
+        @warn "range parameter input $range is ignored for log normalization (produces log-scaled values)"
     end
     if clip_quantiles !== nothing
         if length(clip_quantiles) != 2 || clip_quantiles[1] >= clip_quantiles[2]
@@ -112,10 +120,12 @@ Compute normalization statistics from training data for later application to val
 - `method::Symbol`: Normalization method
   - `:minmax`: Min-max normalization (default)
   - `:zscore`: Z-score normalization (mean=0, std=1)
+  - `:log`: Log normalization (log-transform with automatic offset for non-positive values)
 - `range::Tuple{Real,Real}`: Target range for min-max normalization (default (-1, 1))
     - `(-1, 1)`: Scaled min-max to `[-1,1]` (default)
     - `(0, 1)`: Standard min-max to [0,1]
     - Custom ranges: e.g., `(-2, 2)`
+    - Note: Ignored for :zscore and :log methods
 - `mode::Symbol`: Normalization scope
   - `:global`: Normalize across all values (default)
   - `:columnwise`: Normalize each column independently
@@ -136,6 +146,10 @@ train_stats = compute_normalization_stats(train_labels; method=:zscore, mode=:co
 # Apply to validation/test data (uses same clipping bounds)
 val_normalized = apply_normalization(val_labels, train_stats)
 test_normalized = apply_normalization(test_labels, train_stats)
+
+# Log normalization for skewed distributions
+log_stats = compute_normalization_stats(train_labels; method=:log)
+val_log_normalized = apply_normalization(val_labels, log_stats)
 ```
 """
 function compute_normalization_stats(labels::AbstractArray; 
@@ -177,6 +191,8 @@ function apply_normalization(labels::AbstractArray, stats::NamedTuple)
         return _apply_minmax_normalization(clipped_labels, stats)
     elseif stats.method == :zscore
         return _apply_zscore_normalization(clipped_labels, stats)
+    elseif stats.method == :log
+        return _apply_log_normalization(clipped_labels, stats)
     else
         throw(ArgumentError("Unknown method in stats: $(stats.method)"))
     end
@@ -194,6 +210,8 @@ function denormalize_labels(normalized_labels::AbstractArray, stats::NamedTuple)
         return _denormalize_minmax(normalized_labels, stats)
     elseif stats.method == :zscore
         return _denormalize_zscore(normalized_labels, stats)
+    elseif stats.method == :log
+        return _denormalize_log(normalized_labels, stats)
     else
         throw(ArgumentError("Unknown method in stats: $(stats.method)"))
     end
