@@ -1409,6 +1409,290 @@ using Statistics
             # Log differences should be more similar to each other than original differences
             @test std(log_diffs) < std(original_diffs)
         end
-    end    
+    end
+    
+    @testset "Functor-based Denormalization" begin
+        @testset "MinMaxScaleBack Functor" begin
+            # Test basic min-max scale back
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            stats = compute_normalization_stats(labels; method=:minmax, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Get the functor from stats
+            @test haskey(stats, :scale_back_functor)
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.MinMaxScaleBack
+            
+            # Test elementwise denormalization using functor
+            denormalized = [functor(x) for x in normalized]
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test specific values
+            @test isapprox(functor(-1.0), 1.0, atol=1e-6)  # min
+            @test isapprox(functor(0.0), 3.0, atol=1e-6)   # mid
+            @test isapprox(functor(1.0), 5.0, atol=1e-6)   # max
+            
+            # Test with custom range
+            stats_custom = compute_normalization_stats(labels; method=:minmax, range=(0, 10), clip_quantiles=nothing)
+            normalized_custom = apply_normalization(labels, stats_custom)
+            functor_custom = stats_custom[:scale_back_functor]
+            
+            denormalized_custom = [functor_custom(x) for x in normalized_custom]
+            @test isapprox(denormalized_custom, labels, atol=1e-6)
+            
+            # Test type matches input (Float64 in this case)
+            @test functor isa RealLabelNormalization.MinMaxScaleBack{Float64}
+            @test functor.min_val isa Float64
+            @test functor.max_val isa Float64
+            
+            # Test with Float32 inputs to get Float32 functors
+            labels_f32 = Float32[1.0, 2.0, 3.0, 4.0, 5.0]
+            stats_f32 = compute_normalization_stats(labels_f32; method=:minmax, clip_quantiles=nothing)
+            functor_f32 = stats_f32[:scale_back_functor]
+            @test functor_f32 isa RealLabelNormalization.MinMaxScaleBack{Float32}
+            @test functor_f32.min_val isa Float32
+        end
+        
+        @testset "ZScoreScaleBack Functor" begin
+            # Test basic z-score scale back
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            stats = compute_normalization_stats(labels; method=:zscore, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Get the functor from stats
+            @test haskey(stats, :scale_back_functor)
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.ZScoreScaleBack
+            
+            # Test elementwise denormalization using functor
+            denormalized = [functor(x) for x in normalized]
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test specific values
+            @test isapprox(functor(0.0), 3.0, atol=1e-6)  # mean
+            
+            # Test type matches input (Float64 in this case)
+            @test functor isa RealLabelNormalization.ZScoreScaleBack{Float64}
+            @test functor.mean isa Float64
+            @test functor.std isa Float64
+            
+            # Test with Float32 inputs to get Float32 functors
+            labels_f32 = Float32[1.0, 2.0, 3.0, 4.0, 5.0]
+            stats_f32 = compute_normalization_stats(labels_f32; method=:zscore, clip_quantiles=nothing)
+            functor_f32 = stats_f32[:scale_back_functor]
+            @test functor_f32 isa RealLabelNormalization.ZScoreScaleBack{Float32}
+        end
+        
+        @testset "LogScaleBack Functor" begin
+            # Test basic log scale back
+            labels = [1.0, 10.0, 100.0, 1000.0]
+            stats = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Get the functor from stats
+            @test haskey(stats, :scale_back_functor)
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.LogScaleBack
+            
+            # Test elementwise denormalization using functor
+            denormalized = [functor(x) for x in normalized]
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test type matches input (Float64 in this case)
+            @test functor isa RealLabelNormalization.LogScaleBack{Float64}
+            @test functor.offset isa Float64
+            
+            # Test with Float32 inputs to get Float32 functors
+            labels_f32 = Float32[1.0, 10.0, 100.0, 1000.0]
+            stats_f32 = compute_normalization_stats(labels_f32; method=:log, clip_quantiles=nothing)
+            functor_f32 = stats_f32[:scale_back_functor]
+            @test functor_f32 isa RealLabelNormalization.LogScaleBack{Float32}
+        end
+        
+        @testset "ColumnwiseScaleBack Functor" begin
+            # Test columnwise functor
+            labels = [1.0 10.0; 2.0 20.0; 3.0 30.0; 4.0 40.0; 5.0 50.0]
+            stats = compute_normalization_stats(labels; method=:minmax, mode=:columnwise, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Get the functor from stats
+            @test haskey(stats, :scale_back_functor)
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.ColumnwiseScaleBack
+            
+            # Test that functor has correct number of column functors
+            @test length(functor.functors) == 2
+            @test functor.functors[1] isa RealLabelNormalization.MinMaxScaleBack
+            @test functor.functors[2] isa RealLabelNormalization.MinMaxScaleBack
+            
+            # Test elementwise denormalization using functor
+            denormalized = similar(labels)
+            for i in 1:size(labels, 1)
+                for j in 1:size(labels, 2)
+                    denormalized[i, j] = functor(normalized[i, j], j)
+                end
+            end
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test specific column values
+            @test isapprox(functor(-1.0, 1), 1.0, atol=1e-6)   # col 1 min
+            @test isapprox(functor(1.0, 1), 5.0, atol=1e-6)    # col 1 max
+            @test isapprox(functor(-1.0, 2), 10.0, atol=1e-6)  # col 2 min
+            @test isapprox(functor(1.0, 2), 50.0, atol=1e-6)   # col 2 max
+        end
+        
+        @testset "RowwiseScaleBack Functor" begin
+            # Test rowwise functor
+            labels = [1.0 2.0 3.0 4.0 5.0; 10.0 20.0 30.0 40.0 50.0]
+            stats = compute_normalization_stats(labels; method=:minmax, mode=:rowwise, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Get the functor from stats
+            @test haskey(stats, :scale_back_functor)
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.RowwiseScaleBack
+            
+            # Test that functor has correct number of row functors
+            @test length(functor.functors) == 2
+            @test functor.functors[1] isa RealLabelNormalization.MinMaxScaleBack
+            @test functor.functors[2] isa RealLabelNormalization.MinMaxScaleBack
+            
+            # Test elementwise denormalization using functor
+            denormalized = similar(labels)
+            for i in 1:size(labels, 1)
+                for j in 1:size(labels, 2)
+                    denormalized[i, j] = functor(normalized[i, j], i)
+                end
+            end
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test specific row values
+            @test isapprox(functor(-1.0, 1), 1.0, atol=1e-6)   # row 1 min
+            @test isapprox(functor(1.0, 1), 5.0, atol=1e-6)    # row 1 max
+            @test isapprox(functor(-1.0, 2), 10.0, atol=1e-6)  # row 2 min
+            @test isapprox(functor(1.0, 2), 50.0, atol=1e-6)   # row 2 max
+        end
+        
+        @testset "Functor Round-trip Consistency" begin
+            # Test that denormalize_labels and functor give same results
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            
+            # Min-max
+            stats_mm = compute_normalization_stats(labels; method=:minmax, clip_quantiles=nothing)
+            normalized_mm = apply_normalization(labels, stats_mm)
+            denorm_standard = denormalize_labels(normalized_mm, stats_mm)
+            denorm_functor = [stats_mm[:scale_back_functor](x) for x in normalized_mm]
+            @test isapprox(denorm_standard, denorm_functor, atol=1e-6)
+            
+            # Z-score
+            stats_z = compute_normalization_stats(labels; method=:zscore, clip_quantiles=nothing)
+            normalized_z = apply_normalization(labels, stats_z)
+            denorm_standard_z = denormalize_labels(normalized_z, stats_z)
+            denorm_functor_z = [stats_z[:scale_back_functor](x) for x in normalized_z]
+            @test isapprox(denorm_standard_z, denorm_functor_z, atol=1e-6)
+            
+            # Log
+            stats_log = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
+            normalized_log = apply_normalization(labels, stats_log)
+            denorm_standard_log = denormalize_labels(normalized_log, stats_log)
+            denorm_functor_log = [stats_log[:scale_back_functor](x) for x in normalized_log]
+            @test isapprox(denorm_standard_log, denorm_functor_log, atol=1e-6)
+        end
+        
+        @testset "Functor with Multi-dimensional Data" begin
+            # Test columnwise functors with 2D data
+            labels = [1.0 100.0; 2.0 200.0; 3.0 300.0]
+            stats = compute_normalization_stats(labels; method=:zscore, mode=:columnwise, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.ColumnwiseScaleBack
+            
+            # Denormalize using functor
+            denormalized = similar(labels)
+            for i in 1:size(labels, 1)
+                for j in 1:size(labels, 2)
+                    denormalized[i, j] = functor(normalized[i, j], j)
+                end
+            end
+            
+            # Compare with standard denormalization
+            denorm_standard = denormalize_labels(normalized, stats)
+            @test isapprox(denormalized, denorm_standard, atol=1e-6)
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test rowwise functors with 2D data
+            labels_row = [1.0 2.0 3.0; 10.0 20.0 30.0]
+            stats_row = compute_normalization_stats(labels_row; method=:zscore, mode=:rowwise, clip_quantiles=nothing)
+            normalized_row = apply_normalization(labels_row, stats_row)
+            
+            functor_row = stats_row[:scale_back_functor]
+            @test functor_row isa RealLabelNormalization.RowwiseScaleBack
+            
+            # Denormalize using functor
+            denormalized_row = similar(labels_row)
+            for i in 1:size(labels_row, 1)
+                for j in 1:size(labels_row, 2)
+                    denormalized_row[i, j] = functor_row(normalized_row[i, j], i)
+                end
+            end
+            
+            # Compare with standard denormalization
+            denorm_standard_row = denormalize_labels(normalized_row, stats_row)
+            @test isapprox(denormalized_row, denorm_standard_row, atol=1e-6)
+            @test isapprox(denormalized_row, labels_row, atol=1e-6)
+        end
+        
+        @testset "Functor Type Consistency" begin
+            # Ensure functor types match input types
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]  # Float64
+            
+            # MinMax functor - Float64
+            stats_mm = compute_normalization_stats(labels; method=:minmax, clip_quantiles=nothing)
+            @test stats_mm[:scale_back_functor] isa RealLabelNormalization.MinMaxScaleBack{Float64}
+            
+            # ZScore functor - Float64
+            stats_z = compute_normalization_stats(labels; method=:zscore, clip_quantiles=nothing)
+            @test stats_z[:scale_back_functor] isa RealLabelNormalization.ZScoreScaleBack{Float64}
+            
+            # Log functor - Float64
+            stats_log = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
+            @test stats_log[:scale_back_functor] isa RealLabelNormalization.LogScaleBack{Float64}
+            
+            # Test Float32 inputs produce Float32 functors
+            labels_f32 = Float32[1.0, 2.0, 3.0, 4.0, 5.0]
+            
+            stats_mm_f32 = compute_normalization_stats(labels_f32; method=:minmax, clip_quantiles=nothing)
+            @test stats_mm_f32[:scale_back_functor] isa RealLabelNormalization.MinMaxScaleBack{Float32}
+            
+            stats_z_f32 = compute_normalization_stats(labels_f32; method=:zscore, clip_quantiles=nothing)
+            @test stats_z_f32[:scale_back_functor] isa RealLabelNormalization.ZScoreScaleBack{Float32}
+            
+            stats_log_f32 = compute_normalization_stats(labels_f32; method=:log, clip_quantiles=nothing)
+            @test stats_log_f32[:scale_back_functor] isa RealLabelNormalization.LogScaleBack{Float32}
+            
+            # Columnwise functor - Float64
+            labels_2d = [1.0 10.0; 2.0 20.0]
+            stats_col = compute_normalization_stats(labels_2d; method=:minmax, mode=:columnwise, clip_quantiles=nothing)
+            @test stats_col[:scale_back_functor] isa RealLabelNormalization.ColumnwiseScaleBack
+            @test all(f -> f isa RealLabelNormalization.MinMaxScaleBack{Float64}, stats_col[:scale_back_functor].functors)
+            
+            # Rowwise functor - Float64
+            stats_row = compute_normalization_stats(labels_2d; method=:minmax, mode=:rowwise, clip_quantiles=nothing)
+            @test stats_row[:scale_back_functor] isa RealLabelNormalization.RowwiseScaleBack
+            @test all(f -> f isa RealLabelNormalization.MinMaxScaleBack{Float64}, stats_row[:scale_back_functor].functors)
+            
+            # Columnwise functor - Float32
+            labels_2d_f32 = Float32[1.0 10.0; 2.0 20.0]
+            stats_col_f32 = compute_normalization_stats(labels_2d_f32; method=:minmax, mode=:columnwise, clip_quantiles=nothing)
+            @test stats_col_f32[:scale_back_functor] isa RealLabelNormalization.ColumnwiseScaleBack
+            @test all(f -> f isa RealLabelNormalization.MinMaxScaleBack{Float32}, stats_col_f32[:scale_back_functor].functors)
+            
+            # Rowwise functor - Float32
+            stats_row_f32 = compute_normalization_stats(labels_2d_f32; method=:minmax, mode=:rowwise, clip_quantiles=nothing)
+            @test stats_row_f32[:scale_back_functor] isa RealLabelNormalization.RowwiseScaleBack
+            @test all(f -> f isa RealLabelNormalization.MinMaxScaleBack{Float32}, stats_row_f32[:scale_back_functor].functors)
+        end
+    end
 end
 

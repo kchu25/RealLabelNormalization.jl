@@ -3,6 +3,7 @@ module RealLabelNormalization
 using Statistics
 using StatsBase: quantile
 
+include("functors.jl")    # GPU-compatible denormalization functors
 include("clipping.jl")    # _clip_outliers functions
 include("methods.jl")     # _normalize_*, _apply_*, _denormalize_* functions  
 include("stats.jl")       # _compute_stats_* functions

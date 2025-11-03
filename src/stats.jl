@@ -42,6 +42,7 @@ function _compute_stats_vector(
     if method == :minmax
         min_val, max_val = _safe_extrema(labels; warn_on_nan=warn_on_nan)
         min_val, max_val = convert(T, min_val), convert(T, max_val)
+        functor = MinMaxScaleBack{T}(min_val, max_val, T(range[1]), T(range[2]))
         return (
             method=:minmax, 
             min_val=min_val, 
@@ -49,18 +50,21 @@ function _compute_stats_vector(
             range=range, 
             mode=:vector, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
         )
     elseif method == :zscore
         mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         mu, sigma = convert(T, mu), convert(T, sigma)
+        functor = ZScoreScaleBack{T}(mu, sigma)
         return (
             method=:zscore, 
             mean=mu, 
             std=sigma, 
             mode=:vector, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
         )
     else # :log
         valid_data = filter(!isnan, labels)
@@ -68,23 +72,27 @@ function _compute_stats_vector(
             if warn_on_nan
                 @warn "All values are NaN, cannot compute log normalization statistics"
             end
+            functor = LogScaleBack{T}(convert(T, NaN))
             return (
                 method=:log,
                 offset=convert(T, NaN),
                 mode=:vector,
                 clip_quantiles=clip_quantiles,
-                clip_bounds=clip_bounds
+                clip_bounds=clip_bounds,
+                scale_back_functor=functor
             )
         end
         min_val = minimum(valid_data)
         offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
         offset = convert(T, offset)
+        functor = LogScaleBack{T}(offset)
         return (
             method=:log,
             offset=offset,
             mode=:vector,
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
         )
     end
 end
@@ -111,6 +119,7 @@ function _compute_stats_global(
     if method == :minmax
         min_val, max_val = _safe_extrema(labels; warn_on_nan=warn_on_nan)
         min_val, max_val = convert(T, min_val), convert(T, max_val)
+        functor = MinMaxScaleBack{T}(min_val, max_val, T(range[1]), T(range[2]))
         return (
             method=:minmax, 
             min_val=min_val, 
@@ -118,18 +127,21 @@ function _compute_stats_global(
             range=range, 
             mode=:global, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
         )
     elseif method == :zscore
         mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         mu, sigma = convert(T, mu), convert(T, sigma)
+        functor = ZScoreScaleBack{T}(mu, sigma)
         return (
             method=:zscore, 
             mean=mu, 
             std=sigma, 
             mode=:global, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
         )
     else # :log
         valid_data = filter(!isnan, vec(labels))
@@ -137,23 +149,27 @@ function _compute_stats_global(
             if warn_on_nan
                 @warn "All values are NaN, cannot compute log normalization statistics"
             end
+            functor = LogScaleBack{T}(convert(T, NaN))
             return (
                 method=:log,
                 offset=convert(T, NaN),
                 mode=:global,
                 clip_quantiles=clip_quantiles,
-                clip_bounds=clip_bounds
+                clip_bounds=clip_bounds,
+                scale_back_functor=functor
             )
         end
         min_val = minimum(valid_data)
         offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
         offset = convert(T, offset)
+        functor = LogScaleBack{T}(offset)
         return (
             method=:log,
             offset=offset,
             mode=:global,
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
         )
     end
 end
@@ -187,12 +203,15 @@ function _compute_stats_columnwise(
     if method == :minmax
         min_vals = T[]
         max_vals = T[]
+        functors = []
         for col in 1:n_cols
             min_val, max_val = _safe_extrema(labels[:, col]; warn_on_nan=warn_on_nan)
             min_val, max_val = convert(T, min_val), convert(T, max_val)
             push!(min_vals, min_val)
             push!(max_vals, max_val)
+            push!(functors, MinMaxScaleBack{T}(min_val, max_val, T(range[1]), T(range[2])))
         end
+        col_functor = ColumnwiseScaleBack{T, MinMaxScaleBack{T}}(functors)
         return (
             method=:minmax, 
             min_vals=min_vals, 
@@ -200,27 +219,33 @@ function _compute_stats_columnwise(
             range=range, 
             mode=:columnwise, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
         )
     elseif method == :zscore
         means = T[]
         stds = T[]
+        functors = []
         for col in 1:n_cols
             mu, sigma = _safe_mean_std(labels[:, col]; warn_on_nan=warn_on_nan)
             mu, sigma = convert(T, mu), convert(T, sigma)
             push!(means, mu)
             push!(stds, sigma)
+            push!(functors, ZScoreScaleBack{T}(mu, sigma))
         end
+        col_functor = ColumnwiseScaleBack{T, ZScoreScaleBack{T}}(functors)
         return (
             method=:zscore, 
             means=means, 
             stds=stds, 
             mode=:columnwise, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
         )
     else # :log
         offsets = T[]
+        functors = []
         for col in 1:n_cols
             valid_data = filter(!isnan, labels[:, col])
             if isempty(valid_data)
@@ -228,18 +253,22 @@ function _compute_stats_columnwise(
                     @warn "Column $col has all NaN values, cannot compute log normalization statistics"
                 end
                 push!(offsets, convert(T, NaN))
+                push!(functors, LogScaleBack{T}(convert(T, NaN)))
             else
                 min_val = minimum(valid_data)
                 offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
                 push!(offsets, convert(T, offset))
+                push!(functors, LogScaleBack{T}(convert(T, offset)))
             end
         end
+        col_functor = ColumnwiseScaleBack{T, LogScaleBack{T}}(functors)
         return (
             method=:log,
             offsets=offsets,
             mode=:columnwise,
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
         )
     end
 end
@@ -272,12 +301,15 @@ function _compute_stats_rowwise(
     if method == :minmax
         min_vals = T[]
         max_vals = T[]
+        functors = []
         for row in 1:n_rows
             min_val, max_val = _safe_extrema(labels[row, :]; warn_on_nan=warn_on_nan)
             min_val, max_val = convert(T, min_val), convert(T, max_val)
             push!(min_vals, min_val)
             push!(max_vals, max_val)
+            push!(functors, MinMaxScaleBack{T}(min_val, max_val, T(range[1]), T(range[2])))
         end
+        row_functor = RowwiseScaleBack{T, MinMaxScaleBack{T}}(functors)
         return (
             method=:minmax, 
             min_vals=min_vals, 
@@ -285,27 +317,33 @@ function _compute_stats_rowwise(
             range=range, 
             mode=:rowwise, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
         )
     elseif method == :zscore
         means = T[]
         stds = T[]
+        functors = []
         for row in 1:n_rows
             mu, sigma = _safe_mean_std(labels[row, :]; warn_on_nan=warn_on_nan)
             mu, sigma = convert(T, mu), convert(T, sigma)
             push!(means, mu)
             push!(stds, sigma)
+            push!(functors, ZScoreScaleBack{T}(mu, sigma))
         end
+        row_functor = RowwiseScaleBack{T, ZScoreScaleBack{T}}(functors)
         return (
             method=:zscore, 
             means=means, 
             stds=stds, 
             mode=:rowwise, 
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
         )
     else # :log
         offsets = T[]
+        functors = []
         for row in 1:n_rows
             valid_data = filter(!isnan, labels[row, :])
             if isempty(valid_data)
@@ -313,18 +351,22 @@ function _compute_stats_rowwise(
                     @warn "Row $row has all NaN values, cannot compute log normalization statistics"
                 end
                 push!(offsets, convert(T, NaN))
+                push!(functors, LogScaleBack{T}(convert(T, NaN)))
             else
                 min_val = minimum(valid_data)
                 offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
                 push!(offsets, convert(T, offset))
+                push!(functors, LogScaleBack{T}(convert(T, offset)))
             end
         end
+        row_functor = RowwiseScaleBack{T, LogScaleBack{T}}(functors)
         return (
             method=:log,
             offsets=offsets,
             mode=:rowwise,
             clip_quantiles=clip_quantiles,
-            clip_bounds=clip_bounds
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
         )
     end
 end
