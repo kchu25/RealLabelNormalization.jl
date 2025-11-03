@@ -203,7 +203,7 @@ function _compute_stats_columnwise(
     if method == :minmax
         min_vals = T[]
         max_vals = T[]
-        functors = []
+        functors = MinMaxScaleBack{T}[]
         for col in 1:n_cols
             min_val, max_val = _safe_extrema(labels[:, col]; warn_on_nan=warn_on_nan)
             min_val, max_val = convert(T, min_val), convert(T, max_val)
@@ -225,7 +225,7 @@ function _compute_stats_columnwise(
     elseif method == :zscore
         means = T[]
         stds = T[]
-        functors = []
+        functors = ZScoreScaleBack{T}[]
         for col in 1:n_cols
             mu, sigma = _safe_mean_std(labels[:, col]; warn_on_nan=warn_on_nan)
             mu, sigma = convert(T, mu), convert(T, sigma)
@@ -245,7 +245,7 @@ function _compute_stats_columnwise(
         )
     else # :log
         offsets = T[]
-        functors = []
+        functors = LogScaleBack{T}[]
         for col in 1:n_cols
             valid_data = filter(!isnan, labels[:, col])
             if isempty(valid_data)
@@ -301,7 +301,7 @@ function _compute_stats_rowwise(
     if method == :minmax
         min_vals = T[]
         max_vals = T[]
-        functors = []
+        functors = MinMaxScaleBack{T}[]
         for row in 1:n_rows
             min_val, max_val = _safe_extrema(labels[row, :]; warn_on_nan=warn_on_nan)
             min_val, max_val = convert(T, min_val), convert(T, max_val)
@@ -323,7 +323,7 @@ function _compute_stats_rowwise(
     elseif method == :zscore
         means = T[]
         stds = T[]
-        functors = []
+        functors = ZScoreScaleBack{T}[]
         for row in 1:n_rows
             mu, sigma = _safe_mean_std(labels[row, :]; warn_on_nan=warn_on_nan)
             mu, sigma = convert(T, mu), convert(T, sigma)
@@ -343,7 +343,7 @@ function _compute_stats_rowwise(
         )
     else # :log
         offsets = T[]
-        functors = []
+        functors = LogScaleBack{T}[]
         for row in 1:n_rows
             valid_data = filter(!isnan, labels[row, :])
             if isempty(valid_data)

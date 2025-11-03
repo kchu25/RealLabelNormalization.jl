@@ -5,7 +5,7 @@
     MinMaxScaleBack{T<:AbstractFloat}
 
 Functor for denormalizing min-max normalized values back to original scale.
-Compatible with CUDA kernels.
+Compatible with CUDA kernels - all fields are scalars (bitstype).
 
 # Fields
 - `min_val::T`: Original minimum value
@@ -36,7 +36,7 @@ end
     ZScoreScaleBack{T<:AbstractFloat}
 
 Functor for denormalizing z-score normalized values back to original scale.
-Compatible with CUDA kernels.
+Compatible with CUDA kernels - all fields are scalars (bitstype).
 
 # Fields
 - `mean::T`: Original mean value
@@ -61,7 +61,7 @@ end
     LogScaleBack{T<:AbstractFloat}
 
 Functor for denormalizing log-transformed values back to original scale.
-Compatible with CUDA kernels.
+Compatible with CUDA kernels - all fields are scalars (bitstype).
 
 # Fields
 - `offset::T`: Offset added before log transformation
@@ -81,27 +81,41 @@ function (f::LogScaleBack)(x)
 end
 
 """
-    ColumnwiseScaleBack{T<:AbstractFloat, F}
+    ColumnwiseScaleBack{T<:AbstractFloat, F, N}
 
 Functor for denormalizing columnwise-normalized values.
-Contains a vector of per-column functors.
+Uses a tuple of functors for GPU compatibility (bitstype).
+
+# Type Parameters
+- `T`: Float type (Float32, Float64)
+- `F`: Type of the per-column functor
+- `N`: Number of columns (compile-time constant)
 
 # Fields
-- `functors::Vector{F}`: Vector of functors, one per column
+- `functors::NTuple{N,F}`: Tuple of functors, one per column
 
 # Example
 ```julia
-col_functors = [
+col_functors = (
     MinMaxScaleBack{Float32}(0.0f0, 10.0f0, -1.0f0, 1.0f0),
     ZScoreScaleBack{Float32}(5.0f0, 2.0f0)
-]
+)
 functor = ColumnwiseScaleBack(col_functors)
 original_col1 = functor(0.0f0, 1)  # Denormalize for column 1
 original_col2 = functor(1.5f0, 2)  # Denormalize for column 2
 ```
+
+# GPU Usage Note
+For GPU kernels with large numbers of columns, consider using the raw parameter
+arrays (min_vals, max_vals, etc.) directly from the stats object instead of the functor.
 """
-struct ColumnwiseScaleBack{T<:AbstractFloat, F}
-    functors::Vector{F}
+struct ColumnwiseScaleBack{T<:AbstractFloat, F, N}
+    functors::NTuple{N,F}
+end
+
+# Constructor that accepts Vector and converts to tuple
+function ColumnwiseScaleBack{T,F}(functors::Vector{F}) where {T<:AbstractFloat, F}
+    ColumnwiseScaleBack{T,F,length(functors)}(Tuple(functors))
 end
 
 function (f::ColumnwiseScaleBack)(x, col_idx)
@@ -109,27 +123,42 @@ function (f::ColumnwiseScaleBack)(x, col_idx)
 end
 
 """
-    RowwiseScaleBack{T<:AbstractFloat, F}
+    RowwiseScaleBack{T<:AbstractFloat, F, N}
 
 Functor for denormalizing rowwise-normalized values.
-Contains a vector of per-row functors.
+Uses a tuple of functors for GPU compatibility (bitstype).
+
+# Type Parameters
+- `T`: Float type (Float32, Float64)
+- `F`: Type of the per-row functor
+- `N`: Number of rows (compile-time constant)
 
 # Fields
-- `functors::Vector{F}`: Vector of functors, one per row
+- `functors::NTuple{N,F}`: Tuple of functors, one per row
 
 # Example
 ```julia
-row_functors = [
+row_functors = (
     MinMaxScaleBack{Float32}(0.0f0, 10.0f0, -1.0f0, 1.0f0),
     ZScoreScaleBack{Float32}(5.0f0, 2.0f0)
-]
+)
 functor = RowwiseScaleBack(row_functors)
 original_row1 = functor(0.0f0, 1)  # Denormalize for row 1
 original_row2 = functor(1.5f0, 2)  # Denormalize for row 2
 ```
+
+# GPU Usage Note
+For GPU kernels with large numbers of rows, consider using the raw parameter
+arrays (min_vals, max_vals, etc.) directly from the stats object instead of the functor.
+Tuples with many elements can increase compilation time.
 """
-struct RowwiseScaleBack{T<:AbstractFloat, F}
-    functors::Vector{F}
+struct RowwiseScaleBack{T<:AbstractFloat, F, N}
+    functors::NTuple{N,F}
+end
+
+# Constructor that accepts Vector and converts to tuple
+function RowwiseScaleBack{T,F}(functors::Vector{F}) where {T<:AbstractFloat, F}
+    RowwiseScaleBack{T,F,length(functors)}(Tuple(functors))
 end
 
 function (f::RowwiseScaleBack)(x, row_idx)
