@@ -730,17 +730,17 @@ using Statistics
         @testset "_normalize_vector Tests" begin
             # Test minmax normalization
             data = [1.0, 2.0, 3.0, 4.0, 5.0]
-            normalized = RealLabelNormalization._normalize_vector(data, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_vector(data, :minmax, (-1.0, 1.0), 100.0)
             @test normalized ≈ [-1.0, -0.5, 0.0, 0.5, 1.0] atol=1e-10
             
             # Test zscore normalization
-            normalized_z = RealLabelNormalization._normalize_vector(data, :zscore, (-1.0, 1.0))
+            normalized_z = RealLabelNormalization._normalize_vector(data, :zscore, (-1.0, 1.0), 100.0)
             @test abs(mean(normalized_z)) < 1e-10
             @test abs(std(normalized_z) - 1.0) < 1e-10
             
             # Test with NaN values
             data_nan = [1.0, NaN, 3.0, NaN, 5.0]
-            normalized = RealLabelNormalization._normalize_vector(data_nan, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_vector(data_nan, :minmax, (-1.0, 1.0), 100.0)
             @test normalized[1] ≈ -1.0 atol=1e-10
             @test isnan(normalized[2])
             @test normalized[3] ≈ 0.0 atol=1e-10
@@ -749,28 +749,28 @@ using Statistics
             
             # Test constant data
             constant_data = [5.0, 5.0, 5.0, 5.0]
-            normalized = RealLabelNormalization._normalize_vector(constant_data, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_vector(constant_data, :minmax, (-1.0, 1.0), 100.0)
             @test all(normalized .== 0.0)
             
-            normalized_z = RealLabelNormalization._normalize_vector(constant_data, :zscore, (-1.0, 1.0))
+            normalized_z = RealLabelNormalization._normalize_vector(constant_data, :zscore, (-1.0, 1.0), 100.0)
             @test all(normalized_z .== 0.0)
         end
 
         @testset "_normalize_global Tests" begin
             # Test minmax normalization
             matrix = [1.0 2.0; 3.0 4.0; 5.0 6.0]
-            normalized = RealLabelNormalization._normalize_global(matrix, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_global(matrix, :minmax, (-1.0, 1.0), 100.0)
             @test minimum(normalized) ≈ -1.0 atol=1e-10
             @test maximum(normalized) ≈ 1.0 atol=1e-10
             
             # Test zscore normalization
-            normalized_z = RealLabelNormalization._normalize_global(matrix, :zscore, (-1.0, 1.0))
+            normalized_z = RealLabelNormalization._normalize_global(matrix, :zscore, (-1.0, 1.0), 100.0)
             @test abs(mean(normalized_z)) < 1e-10
             @test abs(std(normalized_z) - 1.0) < 1e-10
             
             # Test with NaN values
             matrix_nan = [1.0 NaN; 3.0 4.0; NaN 6.0]
-            normalized = RealLabelNormalization._normalize_global(matrix_nan, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_global(matrix_nan, :minmax, (-1.0, 1.0), 100.0)
             @test sum(isnan.(normalized)) == 2
             @test normalized[1, 1] ≈ -1.0 atol=1e-10
             @test isnan(normalized[1, 2])
@@ -783,14 +783,14 @@ using Statistics
         @testset "_normalize_columnwise Tests" begin
             # Test minmax normalization
             matrix = [1.0 10.0; 2.0 20.0; 3.0 30.0; 4.0 40.0]
-            normalized = RealLabelNormalization._normalize_columnwise(matrix, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_columnwise(matrix, :minmax, (-1.0, 1.0), 100.0)
             
             # Each column should be normalized independently
             @test normalized[:, 1] ≈ [-1.0, -1/3, 1/3, 1.0] atol=1e-10
             @test normalized[:, 2] ≈ [-1.0, -1/3, 1/3, 1.0] atol=1e-10
             
             # Test zscore normalization
-            normalized_z = RealLabelNormalization._normalize_columnwise(matrix, :zscore, (-1.0, 1.0))
+            normalized_z = RealLabelNormalization._normalize_columnwise(matrix, :zscore, (-1.0, 1.0), 100.0)
             for col in 1:size(matrix, 2)
                 col_data = normalized_z[:, col]
                 @test abs(mean(col_data)) < 1e-10
@@ -799,7 +799,7 @@ using Statistics
             
             # Test with NaN values
             matrix_nan = [1.0 NaN; 2.0 20.0; NaN 30.0; 4.0 40.0]
-            normalized = RealLabelNormalization._normalize_columnwise(matrix_nan, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_columnwise(matrix_nan, :minmax, (-1.0, 1.0), 100.0)
             @test sum(isnan.(normalized)) == 2
             @test normalized[1, 1] ≈ -1.0 atol=1e-10
             @test isnan(normalized[1, 2])
@@ -814,7 +814,7 @@ using Statistics
         @testset "_normalize_rowwise Tests" begin
             # Test minmax normalization
             matrix = [1.0 2.0 3.0; 10.0 20.0 30.0; -1.0 0.0 1.0]
-            normalized = RealLabelNormalization._normalize_rowwise(matrix, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_rowwise(matrix, :minmax, (-1.0, 1.0), 100.0)
             
             # Each row should be normalized independently
             @test normalized[1, :] ≈ [-1.0, 0.0, 1.0] atol=1e-10
@@ -822,7 +822,7 @@ using Statistics
             @test normalized[3, :] ≈ [-1.0, 0.0, 1.0] atol=1e-10
             
             # Test zscore normalization
-            normalized_z = RealLabelNormalization._normalize_rowwise(matrix, :zscore, (-1.0, 1.0))
+            normalized_z = RealLabelNormalization._normalize_rowwise(matrix, :zscore, (-1.0, 1.0), 100.0)
             for row in 1:size(matrix, 1)
                 row_data = normalized_z[row, :]
                 @test abs(mean(row_data)) < 1e-10
@@ -831,7 +831,7 @@ using Statistics
             
             # Test with NaN values
             matrix_nan = [1.0 NaN 3.0; 10.0 20.0 NaN]
-            normalized = RealLabelNormalization._normalize_rowwise(matrix_nan, :minmax, (-1.0, 1.0))
+            normalized = RealLabelNormalization._normalize_rowwise(matrix_nan, :minmax, (-1.0, 1.0), 100.0)
             @test sum(isnan.(normalized)) == 2
             @test normalized[1, 1] ≈ -1.0 atol=1e-10
             @test isnan(normalized[1, 2])
@@ -1189,7 +1189,7 @@ using Statistics
             # Manual calculation for log normalization (no offset needed since all positive)
             expected_log = log.([1.0, 2.0, 4.0, 8.0, 16.0])
             
-            stats = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
+            stats = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing, log_shift=1.0)
             normalized = apply_normalization(labels, stats)
             
             @test isapprox(normalized, expected_log, atol=1e-10)
@@ -1197,7 +1197,7 @@ using Statistics
             
             # Test with negative values (offset required)
             labels_neg = [-5.0, -3.0, -1.0, 1.0, 3.0]
-            stats_neg = compute_normalization_stats(labels_neg; method=:log, clip_quantiles=nothing)
+            stats_neg = compute_normalization_stats(labels_neg; method=:log, clip_quantiles=nothing, log_shift=1.0)
             
             # Offset should be abs(min_val) + 1 = abs(-5.0) + 1 = 6.0
             @test stats_neg.offset == 6.0
@@ -1209,7 +1209,7 @@ using Statistics
             
             # Test with values including zero
             labels_zero = [0.0, 1.0, 2.0, 3.0, 4.0]
-            stats_zero = compute_normalization_stats(labels_zero; method=:log, clip_quantiles=nothing)
+            stats_zero = compute_normalization_stats(labels_zero; method=:log, clip_quantiles=nothing, log_shift=1.0)
             
             # Offset should be 1.0 (since min_val = 0)
             @test stats_zero.offset == 1.0
@@ -1363,7 +1363,7 @@ using Statistics
             matrix_labels = [1.0 100.0; 2.0 200.0; 3.0 300.0; 4.0 400.0]
             
             # Columnwise normalization
-            stats_col = compute_normalization_stats(matrix_labels; method=:log, mode=:columnwise, clip_quantiles=nothing)
+            stats_col = compute_normalization_stats(matrix_labels; method=:log, mode=:columnwise, clip_quantiles=nothing, log_shift=1.0)
             normalized_col = apply_normalization(matrix_labels, stats_col)
             denormalized_col = denormalize_labels(normalized_col, stats_col)
             
@@ -1377,7 +1377,7 @@ using Statistics
             
             # Rowwise normalization
             matrix_row = [1.0 2.0 3.0; 10.0 20.0 30.0; -5.0 0.0 5.0]
-            stats_row = compute_normalization_stats(matrix_row; method=:log, mode=:rowwise, clip_quantiles=nothing)
+            stats_row = compute_normalization_stats(matrix_row; method=:log, mode=:rowwise, clip_quantiles=nothing, log_shift=1.0)
             normalized_row = apply_normalization(matrix_row, stats_row)
             denormalized_row = denormalize_labels(normalized_row, stats_row)
             

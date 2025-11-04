@@ -53,7 +53,7 @@ function _scale_to_range(normalized_01::AbstractArray, range::Tuple{Real,Real})
     return range[1] .+ normalized_01 .* (range[2] - range[1])
 end
 
-function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{Real,Real}; 
+function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; 
                         warn_on_nan::Bool=true)
     if method == :minmax
         normalized_01, min_val, max_val = _minmax_normalize_to_01(labels; warn_on_nan=warn_on_nan)
@@ -84,7 +84,7 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
             return fill(NaN, size(labels))
         end
         min_val = minimum(valid_data)
-        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
         # Apply log transformation
         result = similar(labels)
         for i in eachindex(labels)
@@ -98,9 +98,9 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
     end
 end
 
-function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real})
+function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
     if method == :minmax
-        normalized_01, min_val, max_val = _minmax_normalize_to_01(labels)
+        normalized_01, min_val, max_val = _minmax_normalize_to_01(labels; warn_on_nan=warn_on_nan)
         if min_val == max_val
             @warn "All labels have the same value ($min_val), returning zeros"
             return normalized_01  # Already zeros from helper
@@ -108,7 +108,7 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
         # Scale from [0,1] to target range
         return _scale_to_range(normalized_01, range)
     elseif method == :zscore
-        mu, sigma = _safe_mean_std(labels)
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
         if isnan(mu) || isnan(sigma)
             @warn "Cannot compute z-score with NaN statistics, returning NaN array"
             return fill(NaN, size(labels))
@@ -126,7 +126,7 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
             return fill(NaN, size(labels))
         end
         min_val = minimum(valid_data)
-        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
         # Apply log transformation
         result = similar(labels)
         for i in eachindex(labels)
@@ -140,13 +140,13 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
     end
 end
 
-function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real})
+function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
     normalized = similar(labels)
     
     for col in axes(labels, 2) # for col in
         column_data = @view labels[:, col]
         if method == :minmax
-            normalized_01, min_val, max_val = _minmax_normalize_to_01(column_data)
+            normalized_01, min_val, max_val = _minmax_normalize_to_01(column_data; warn_on_nan=warn_on_nan)
             if min_val == max_val
                 @warn "Column $col has constant values ($min_val), setting to zeros"
                 normalized[:, col] = normalized_01  # Already zeros from helper
@@ -154,7 +154,7 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
                 normalized[:, col] = _scale_to_range(normalized_01, range)
             end
         elseif method == :zscore
-            mu, sigma = _safe_mean_std(column_data)
+            mu, sigma = _safe_mean_std(column_data; warn_on_nan=warn_on_nan)
             if isnan(mu) || isnan(sigma)
                 @warn "Column $col has all NaN values, setting to NaN"
                 normalized[:, col] .= NaN
@@ -171,7 +171,7 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
                 normalized[:, col] .= NaN
             else
                 min_val = minimum(valid_data)
-                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
                 for i in eachindex(column_data)
                     if isnan(column_data[i])
                         normalized[i, col] = NaN
@@ -186,7 +186,7 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
     return normalized
 end
 
-function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}; warn_on_nan::Bool=true)
+function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
     normalized = similar(labels)
     for row in axes(labels, 1)
         row_data = @view labels[row, :]
@@ -218,7 +218,7 @@ function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple
                 normalized[row, :] .= NaN
             else
                 min_val = minimum(valid_data)
-                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
                 for i in eachindex(row_data)
                     if isnan(row_data[i])
                         normalized[row, i] = NaN

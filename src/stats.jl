@@ -24,7 +24,8 @@ function _compute_stats_vector(
     labels::AbstractVector, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}},
+    log_shift::Real;
     warn_on_nan::Bool=true
 )
     T = eltype(labels)
@@ -76,6 +77,7 @@ function _compute_stats_vector(
             return (
                 method=:log,
                 offset=convert(T, NaN),
+                log_shift=convert(T, log_shift),
                 mode=:vector,
                 clip_quantiles=clip_quantiles,
                 clip_bounds=clip_bounds,
@@ -83,12 +85,13 @@ function _compute_stats_vector(
             )
         end
         min_val = minimum(valid_data)
-        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
         offset = convert(T, offset)
         functor = LogScaleBack{T}(offset)
         return (
             method=:log,
             offset=offset,
+            log_shift=convert(T, log_shift),
             mode=:vector,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
@@ -101,7 +104,8 @@ function _compute_stats_global(
     labels::AbstractMatrix, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}},
+    log_shift::Real;
     warn_on_nan::Bool=true
 )
     T = eltype(labels)
@@ -153,6 +157,7 @@ function _compute_stats_global(
             return (
                 method=:log,
                 offset=convert(T, NaN),
+                log_shift=convert(T, log_shift),
                 mode=:global,
                 clip_quantiles=clip_quantiles,
                 clip_bounds=clip_bounds,
@@ -160,12 +165,13 @@ function _compute_stats_global(
             )
         end
         min_val = minimum(valid_data)
-        offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+        offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
         offset = convert(T, offset)
         functor = LogScaleBack{T}(offset)
         return (
             method=:log,
             offset=offset,
+            log_shift=convert(T, log_shift),
             mode=:global,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
@@ -178,7 +184,8 @@ function _compute_stats_columnwise(
     labels::AbstractMatrix, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}},
+    log_shift::Real;
     warn_on_nan::Bool=true
 )
     n_cols = size(labels, 2)
@@ -256,7 +263,7 @@ function _compute_stats_columnwise(
                 push!(functors, LogScaleBack{T}(convert(T, NaN)))
             else
                 min_val = minimum(valid_data)
-                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
                 push!(offsets, convert(T, offset))
                 push!(functors, LogScaleBack{T}(convert(T, offset)))
             end
@@ -265,6 +272,7 @@ function _compute_stats_columnwise(
         return (
             method=:log,
             offsets=offsets,
+            log_shift=convert(T, log_shift),
             mode=:columnwise,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
@@ -277,7 +285,8 @@ function _compute_stats_rowwise(
     labels::AbstractMatrix, 
     method::Symbol, 
     range::Tuple{Real,Real}, 
-    clip_quantiles::Union{Nothing,Tuple{Real,Real}};
+    clip_quantiles::Union{Nothing,Tuple{Real,Real}},
+    log_shift::Real;
     warn_on_nan::Bool=true
 )
     n_rows = size(labels, 1)
@@ -354,7 +363,7 @@ function _compute_stats_rowwise(
                 push!(functors, LogScaleBack{T}(convert(T, NaN)))
             else
                 min_val = minimum(valid_data)
-                offset = min_val <= 0 ? abs(min_val) + 1.0 : 0.0
+                offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
                 push!(offsets, convert(T, offset))
                 push!(functors, LogScaleBack{T}(convert(T, offset)))
             end
@@ -363,6 +372,7 @@ function _compute_stats_rowwise(
         return (
             method=:log,
             offsets=offsets,
+            log_shift=convert(T, log_shift),
             mode=:rowwise,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
