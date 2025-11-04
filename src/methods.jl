@@ -91,6 +91,49 @@ function _zscore_minmax_normalize(data::AbstractArray, range::Tuple{Real,Real}; 
     return result, mu, sigma, z_min, z_max
 end
 
+# Helper function for log + minmax normalization
+function _log_minmax_normalize(data::AbstractArray, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
+    # Step 1: Determine offset for log transformation
+    valid_data = filter(!isnan, data)
+    if isempty(valid_data)
+        if warn_on_nan
+            @warn "Cannot compute log with all NaN values, returning NaN array"
+        end
+        return fill(NaN, size(data)), NaN, NaN, NaN
+    end
+    
+    min_val = minimum(valid_data)
+    offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
+    
+    # Step 2: Apply log transformation
+    log_data = similar(data)
+    for i in eachindex(data)
+        if isnan(data[i])
+            log_data[i] = NaN
+        else
+            log_data[i] = log(data[i] + offset)
+        end
+    end
+    
+    # Step 3: Min-max normalization on the log values
+    valid_log = filter(!isnan, log_data)
+    if isempty(valid_log)
+        return fill(NaN, size(data)), offset, NaN, NaN
+    end
+    
+    log_min, log_max = extrema(valid_log)
+    if log_min == log_max
+        # All log values are the same
+        return fill((range[1] + range[2]) / 2, size(data)), offset, log_min, log_max
+    end
+    
+    # Scale log values from [log_min, log_max] to target range
+    normalized_01 = (log_data .- log_min) ./ (log_max - log_min)
+    result = _scale_to_range(normalized_01, range)
+    
+    return result, offset, log_min, log_max
+end
+
 function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; 
                         warn_on_nan::Bool=true)
     if method == :minmax
@@ -114,6 +157,9 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
         return (labels .- mu) ./ sigma
     elseif method == :zscore_minmax
         result, _, _, _, _ = _zscore_minmax_normalize(labels, range; warn_on_nan=warn_on_nan)
+        return result
+    elseif method == :log_minmax
+        result, _, _, _ = _log_minmax_normalize(labels, range, log_shift; warn_on_nan=warn_on_nan)
         return result
     else # :log
         # Compute offset to ensure all values are positive
@@ -161,6 +207,9 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
         return (labels .- mu) ./ sigma
     elseif method == :zscore_minmax
         result, _, _, _, _ = _zscore_minmax_normalize(labels, range; warn_on_nan=warn_on_nan)
+        return result
+    elseif method == :log_minmax
+        result, _, _, _ = _log_minmax_normalize(labels, range, log_shift; warn_on_nan=warn_on_nan)
         return result
     else # :log
         # Compute offset to ensure all values are positive
@@ -211,6 +260,9 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
         elseif method == :zscore_minmax
             result, _, _, _, _ = _zscore_minmax_normalize(column_data, range; warn_on_nan=warn_on_nan)
             normalized[:, col] = result
+        elseif method == :log_minmax
+            result, _, _, _ = _log_minmax_normalize(column_data, range, log_shift; warn_on_nan=warn_on_nan)
+            normalized[:, col] = result
         else # :log
             valid_data = filter(!isnan, column_data)
             if isempty(valid_data)
@@ -258,6 +310,9 @@ function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple
             end
         elseif method == :zscore_minmax
             result, _, _, _, _ = _zscore_minmax_normalize(row_data, range; warn_on_nan=warn_on_nan)
+            normalized[row, :] = result
+        elseif method == :log_minmax
+            result, _, _, _ = _log_minmax_normalize(row_data, range, log_shift; warn_on_nan=warn_on_nan)
             normalized[row, :] = result
         else # :log
             valid_data = filter(!isnan, row_data)
@@ -451,6 +506,68 @@ function _apply_zscore_minmax_normalization(labels::AbstractArray, stats::NamedT
                 else
                     z = sigma == 0.0 ? 0.0 : (labels[row, i] - mu) / sigma
                     norm_01 = (z_max == z_min) ? 0.0 : (z - z_min) / (z_max - z_min)
+                    normalized[row, i] = range_low + norm_01 * (range_high - range_low)
+                end
+            end
+        end
+        return normalized
+    end
+end
+
+function _apply_log_minmax_normalization(labels::AbstractArray, stats::NamedTuple)
+    if stats.mode == :vector || stats.mode == :global
+        offset = stats.offset
+        log_min = stats.log_min
+        log_max = stats.log_max
+        range_low, range_high = stats.range
+        
+        result = similar(labels)
+        for i in eachindex(labels)
+            if isnan(labels[i])
+                result[i] = NaN
+            else
+                # Step 1: Log transformation
+                log_val = log(labels[i] + offset)
+                # Step 2: Min-max to [0,1]
+                norm_01 = (log_max == log_min) ? 0.0 : (log_val - log_min) / (log_max - log_min)
+                # Step 3: Scale to target range
+                result[i] = range_low + norm_01 * (range_high - range_low)
+            end
+        end
+        return result
+    elseif stats.mode == :columnwise
+        normalized = similar(labels)
+        for col in axes(labels, 2)
+            offset = stats.offsets[col]
+            log_min = stats.log_mins[col]
+            log_max = stats.log_maxs[col]
+            range_low, range_high = stats.range
+            
+            for i in axes(labels, 1)
+                if isnan(labels[i, col])
+                    normalized[i, col] = NaN
+                else
+                    log_val = log(labels[i, col] + offset)
+                    norm_01 = (log_max == log_min) ? 0.0 : (log_val - log_min) / (log_max - log_min)
+                    normalized[i, col] = range_low + norm_01 * (range_high - range_low)
+                end
+            end
+        end
+        return normalized
+    else # :rowwise
+        normalized = similar(labels)
+        for row in axes(labels, 1)
+            offset = stats.offsets[row]
+            log_min = stats.log_mins[row]
+            log_max = stats.log_maxs[row]
+            range_low, range_high = stats.range
+            
+            for i in axes(labels, 2)
+                if isnan(labels[row, i])
+                    normalized[row, i] = NaN
+                else
+                    log_val = log(labels[row, i] + offset)
+                    norm_01 = (log_max == log_min) ? 0.0 : (log_val - log_min) / (log_max - log_min)
                     normalized[row, i] = range_low + norm_01 * (range_high - range_low)
                 end
             end

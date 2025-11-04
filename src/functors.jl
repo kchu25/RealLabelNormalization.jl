@@ -121,6 +121,44 @@ function (f::ZScoreMinMaxScaleBack)(x)
 end
 
 """
+    LogMinMaxScaleBack{T<:AbstractFloat}
+
+Functor for denormalizing values that were log-transformed then min-max scaled.
+Compatible with CUDA kernels - all fields are scalars (bitstype).
+
+This handles the two-step normalization: log transformation → min-max bounds.
+
+# Fields
+- `offset::T`: Offset added before log transformation
+- `log_min::T`: Minimum log value from training data
+- `log_max::T`: Maximum log value from training data
+- `range_low::T`: Lower bound applied after log transformation
+- `range_high::T`: Upper bound applied after log transformation
+
+# Example
+```julia
+functor = LogMinMaxScaleBack{Float32}(0.0f0, 0.0f0, 4.6f0, 0.0f0, 1.0f0)
+# Denormalizes a value that was log-transformed then scaled to [0,1]
+original = functor(0.5f0)  
+```
+"""
+struct LogMinMaxScaleBack{T<:AbstractFloat}
+    offset::T
+    log_min::T
+    log_max::T
+    range_low::T
+    range_high::T
+end
+
+function (f::LogMinMaxScaleBack)(x)
+    # First reverse the min-max scaling back to log range
+    range_01 = (x - f.range_low) / (f.range_high - f.range_low)
+    log_val = f.log_min + range_01 * (f.log_max - f.log_min)
+    # Then reverse log to original scale
+    return exp(log_val) - f.offset
+end
+
+"""
     ColumnwiseScaleBack{T<:AbstractFloat, F, N}
 
 Functor for denormalizing columnwise-normalized values.

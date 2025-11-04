@@ -55,6 +55,7 @@ predictions_original = denormalize_labels(model(X_test), stats)
 | `:zscore` | Zero mean, unit variance | Standard scaling, unbounded |
 | `:zscore_minmax` | Z-score then min-max | Outlier handling + bounded range |
 | `:log` | Log transform | Skewed distributions |
+| `:log_minmax` | Log then min-max | Skewed data + bounded range |
 
 ## Modes (Matrices Only)
 

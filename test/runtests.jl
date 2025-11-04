@@ -1652,6 +1652,322 @@ using Statistics
         end
     end
     
+    @testset "log_minmax Normalization" begin
+        @testset "LogMinMax Ground Truth" begin
+            # Test with simple values for manual verification
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+            
+            # Step 1: Log transform (no offset needed for positive values)
+            log_vals = log.(labels)
+            # log([1,2,3,4,5]) ≈ [0.0, 0.693, 1.099, 1.386, 1.609]
+            
+            # Step 2: Find min/max of log values
+            log_min, log_max = minimum(log_vals), maximum(log_vals)
+            
+            # Step 3: Min-max scale to [-1, 1]
+            range_low, range_high = -1.0, 1.0
+            expected_final = [range_low + (lv - log_min) / (log_max - log_min) * (range_high - range_low) for lv in log_vals]
+            
+            stats = compute_normalization_stats(labels; method=:log_minmax, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            @test isapprox(normalized, expected_final, atol=1e-10)
+            
+            # Test with skewed data - log_minmax should handle it better than pure minmax
+            labels_skewed = [1.0, 2.0, 3.0, 4.0, 5.0, 1000.0]
+            
+            # Pure min-max would cluster [1,2,3,4,5] very close to -1
+            stats_minmax = compute_normalization_stats(labels_skewed; method=:minmax, clip_quantiles=nothing)
+            normalized_minmax = apply_normalization(labels_skewed, stats_minmax)
+            
+            # Log+MinMax should spread them out better
+            stats_lm = compute_normalization_stats(labels_skewed; method=:log_minmax, clip_quantiles=nothing)
+            normalized_lm = apply_normalization(labels_skewed, stats_lm)
+            
+            # Check that both methods produce bounded outputs
+            @test all(-1 ≤ x ≤ 1 for x in normalized_minmax)
+            @test all(-1 ≤ x ≤ 1 for x in normalized_lm)
+            
+            # With log transform, smaller values should be better distributed
+            non_extreme_std_minmax = std(normalized_minmax[1:5])
+            non_extreme_std_lm = std(normalized_lm[1:5])
+            @test non_extreme_std_lm > non_extreme_std_minmax  # Log should spread them out more
+        end
+        
+        @testset "LogMinMax Round-trip" begin
+            # Test perfect round-trip without clipping
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0, 10.0, 100.0]
+            stats = compute_normalization_stats(labels; method=:log_minmax, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            denormalized = denormalize_labels(normalized, stats)
+            
+            # Test normalization properties
+            @test all(-1 ≤ x ≤ 1 for x in normalized)  # Default range [-1, 1]
+            @test isapprox(labels, denormalized, atol=1e-10)  # Perfect round-trip
+            
+            # Test min/max are at boundaries
+            @test minimum(normalized) ≈ -1.0
+            @test maximum(normalized) ≈ 1.0
+            
+            # Test custom range [0, 1]
+            stats_01 = compute_normalization_stats(labels; method=:log_minmax, range=(0, 1), clip_quantiles=nothing)
+            normalized_01 = apply_normalization(labels, stats_01)
+            denormalized_01 = denormalize_labels(normalized_01, stats_01)
+            
+            @test all(0 ≤ x ≤ 1 for x in normalized_01)
+            @test isapprox(labels, denormalized_01, atol=1e-10)
+            @test minimum(normalized_01) ≈ 0.0
+            @test maximum(normalized_01) ≈ 1.0
+        end
+        
+        @testset "LogMinMax with Non-Positive Values" begin
+            # Test with negative and zero values (requires offset)
+            labels_neg = [-5.0, -2.0, 0.0, 1.0, 5.0, 10.0]
+            
+            stats_neg = compute_normalization_stats(labels_neg; method=:log_minmax, log_shift=100.0, clip_quantiles=nothing)
+            normalized_neg = apply_normalization(labels_neg, stats_neg)
+            denormalized_neg = denormalize_labels(normalized_neg, stats_neg)
+            
+            # Should handle negative values by adding offset
+            @test all(-1 ≤ x ≤ 1 for x in normalized_neg)
+            @test isapprox(labels_neg, denormalized_neg, atol=1e-10)
+            
+            # Check that offset was computed correctly (should be abs(min) + log_shift)
+            @test stats_neg.scale_back_functor.offset ≈ abs(-5.0) + 100.0
+        end
+        
+        @testset "LogMinMax NaN Handling" begin
+            # Test with some NaN values
+            labels_with_nan = [1.0, NaN, 3.0, 4.0, NaN, 5.0, 100.0]
+            stats = compute_normalization_stats(labels_with_nan; method=:log_minmax, clip_quantiles=nothing)
+            normalized = apply_normalization(labels_with_nan, stats)
+            denormalized = denormalize_labels(normalized, stats)
+            
+            # Essential tests for NaN handling
+            @test sum(isnan.(normalized)) == 2  # NaNs preserved in output
+            @test sum(isnan.(denormalized)) == 2  # NaNs preserved after round-trip
+            
+            # Valid values should still normalize correctly
+            valid_mask = .!isnan.(labels_with_nan)
+            @test all(-1 ≤ x ≤ 1 for x in normalized[valid_mask])  # Valid values in range
+            @test isapprox(labels_with_nan[valid_mask], denormalized[valid_mask], atol=1e-10)  # Round-trip works
+        end
+        
+        @testset "LogMinMax Multi-output Labels" begin
+            # Test matrix labels - global mode
+            matrix_labels = [1.0 10.0; 2.0 20.0; 3.0 30.0; 4.0 40.0; 5.0 100.0]
+            
+            stats = compute_normalization_stats(matrix_labels; method=:log_minmax, mode=:global, clip_quantiles=nothing)
+            normalized = apply_normalization(matrix_labels, stats)
+            denormalized = denormalize_labels(normalized, stats)
+            
+            # Test shapes preserved
+            @test size(normalized) == size(matrix_labels)
+            @test size(denormalized) == size(matrix_labels)
+            
+            # Test normalization range
+            @test all(-1 ≤ x ≤ 1 for x in normalized)
+            
+            # Test round-trip accuracy
+            @test isapprox(matrix_labels, denormalized, atol=1e-10)
+            
+            # Test matrix with NaN values
+            matrix_with_nan = [1.0 NaN; 3.0 4.0; NaN 100.0]
+            matrix_stats = compute_normalization_stats(matrix_with_nan; method=:log_minmax, mode=:global, clip_quantiles=nothing)
+            matrix_normalized = apply_normalization(matrix_with_nan, matrix_stats)
+            matrix_denormalized = denormalize_labels(matrix_normalized, matrix_stats)
+            
+            @test sum(isnan.(matrix_normalized)) == 2  # NaN count preserved
+            @test size(matrix_normalized) == size(matrix_with_nan)  # Shape preserved
+            @test isapprox(matrix_with_nan[.!isnan.(matrix_with_nan)], matrix_denormalized[.!isnan.(matrix_denormalized)], atol=1e-10)
+        end
+        
+        @testset "LogMinMax Columnwise Mode" begin
+            # Test matrix labels - columnwise normalization
+            matrix_labels = [1.0 10.0; 2.0 20.0; 3.0 30.0; 4.0 40.0; 5.0 100.0]
+            
+            stats = compute_normalization_stats(matrix_labels; method=:log_minmax, mode=:columnwise, clip_quantiles=nothing)
+            normalized = apply_normalization(matrix_labels, stats)
+            denormalized = denormalize_labels(normalized, stats)
+            
+            # Each column should be normalized independently
+            @test all(-1 ≤ x ≤ 1 for x in normalized[:, 1])
+            @test all(-1 ≤ x ≤ 1 for x in normalized[:, 2])
+            
+            # Round-trip accuracy
+            @test isapprox(matrix_labels, denormalized, atol=1e-10)
+            
+            # Each column should have min=-1 and max=1
+            @test minimum(normalized[:, 1]) ≈ -1.0
+            @test maximum(normalized[:, 1]) ≈ 1.0
+            @test minimum(normalized[:, 2]) ≈ -1.0
+            @test maximum(normalized[:, 2]) ≈ 1.0
+            
+            # Test with NaN values
+            matrix_nan = [1.0 NaN; 2.0 20.0; NaN 30.0; 4.0 40.0; 5.0 100.0]
+            stats_nan = compute_normalization_stats(matrix_nan; method=:log_minmax, mode=:columnwise, clip_quantiles=nothing)
+            normalized_nan = apply_normalization(matrix_nan, stats_nan)
+            denormalized_nan = denormalize_labels(normalized_nan, stats_nan)
+            
+            @test sum(isnan.(normalized_nan)) == 2
+            # Valid values in each column are in [-1, 1]
+            for j in 1:size(matrix_nan, 2)
+                valid = .!isnan.(matrix_nan[:, j])
+                @test all(-1 ≤ x ≤ 1 for x in normalized_nan[:, j][valid])
+            end
+            @test isapprox(matrix_nan[.!isnan.(matrix_nan)], denormalized_nan[.!isnan.(denormalized_nan)], atol=1e-10)
+        end
+        
+        @testset "LogMinMax Rowwise Mode" begin
+            # Each row is normalized independently
+            mat = [1.0 2.0 3.0 100.0; 10.0 20.0 30.0 40.0; 0.5 1.0 5.0 10.0]
+            
+            stats_row = compute_normalization_stats(mat; method=:log_minmax, mode=:rowwise, clip_quantiles=nothing)
+            normalized_row = apply_normalization(mat, stats_row)
+            denormalized_row = denormalize_labels(normalized_row, stats_row)
+            
+            # Each row should be normalized to [-1, 1]
+            for i in 1:size(mat, 1)
+                row = normalized_row[i, :]
+                @test all(-1 ≤ x ≤ 1 for x in row)
+                @test minimum(row) ≈ -1.0
+                @test maximum(row) ≈ 1.0
+            end
+            
+            # Round-trip
+            @test isapprox(mat, denormalized_row, atol=1e-10)
+            
+            # NaN handling: NaNs preserved, valid values normalized
+            mat_nan = [1.0 NaN 3.0 100.0; 10.0 20.0 NaN 40.0]
+            stats_nan = compute_normalization_stats(mat_nan; method=:log_minmax, mode=:rowwise, clip_quantiles=nothing)
+            normalized_nan = apply_normalization(mat_nan, stats_nan)
+            denormalized_nan = denormalize_labels(normalized_nan, stats_nan)
+            
+            @test sum(isnan.(normalized_nan)) == 2
+            # Valid values in each row are in [-1, 1]
+            for i in 1:size(mat_nan, 1)
+                valid = .!isnan.(mat_nan[i, :])
+                @test all(-1 ≤ x ≤ 1 for x in normalized_nan[i, :][valid])
+            end
+            @test isapprox(mat_nan[.!isnan.(mat_nan)], denormalized_nan[.!isnan.(denormalized_nan)], atol=1e-10)
+        end
+        
+        @testset "LogMinMax Edge Cases" begin
+            # Test constant values (all same after log)
+            constant_labels = [5.0, 5.0, 5.0, 5.0]
+            
+            stats_constant = compute_normalization_stats(constant_labels; method=:log_minmax, clip_quantiles=nothing)
+            normalized_constant = apply_normalization(constant_labels, stats_constant)
+            denormalized_constant = denormalize_labels(normalized_constant, stats_constant)
+            
+            # When log values are constant, min-max of constant values maps all to range_low
+            @test all(x ≈ -1.0 for x in normalized_constant)  # All map to range_low
+            @test isapprox(constant_labels, denormalized_constant, atol=1e-10)
+            
+            # Test single value
+            single_value = [3.14]
+            stats_single = compute_normalization_stats(single_value; method=:log_minmax, clip_quantiles=nothing)
+            normalized_single = apply_normalization(single_value, stats_single)
+            denormalized_single = denormalize_labels(normalized_single, stats_single)
+            
+            @test normalized_single[1] ≈ -1.0  # Single value maps to range_low
+            @test denormalized_single[1] ≈ 3.14 atol=1e-10
+            
+            # Test two identical values
+            two_identical = [2.0, 2.0]
+            stats_two = compute_normalization_stats(two_identical; method=:log_minmax, clip_quantiles=nothing)
+            normalized_two = apply_normalization(two_identical, stats_two)
+            denormalized_two = denormalize_labels(normalized_two, stats_two)
+            
+            @test all(x ≈ -1.0 for x in normalized_two)  # Both map to range_low
+            @test isapprox(two_identical, denormalized_two, atol=1e-10)
+        end
+        
+        @testset "LogMinMax with Clipping" begin
+            # Test with extreme values and clipping
+            data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10000.0]
+            
+            # Test without clipping
+            stats_no_clip = compute_normalization_stats(data; method=:log_minmax, clip_quantiles=nothing)
+            normalized_no_clip = apply_normalization(data, stats_no_clip)
+            denormalized_no_clip = denormalize_labels(normalized_no_clip, stats_no_clip)
+            
+            # Test with clipping
+            stats_with_clip = compute_normalization_stats(data; method=:log_minmax, clip_quantiles=(0.1, 0.9))
+            normalized_with_clip = apply_normalization(data, stats_with_clip)
+            denormalized_with_clip = denormalize_labels(normalized_with_clip, stats_with_clip)
+            
+            # Clipping should reduce the range of the denormalized data
+            @test (maximum(denormalized_with_clip) - minimum(denormalized_with_clip)) < 
+                  (maximum(denormalized_no_clip) - minimum(denormalized_no_clip))
+            
+            # The extreme value should be clipped
+            @test denormalized_with_clip[end] < 1000.0
+        end
+        
+        @testset "LogMinMax Functor Tests" begin
+            # Test LogMinMaxScaleBack functor
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0, 100.0]
+            stats = compute_normalization_stats(labels; method=:log_minmax, clip_quantiles=nothing)
+            normalized = apply_normalization(labels, stats)
+            
+            # Get the functor from stats
+            @test haskey(stats, :scale_back_functor)
+            functor = stats[:scale_back_functor]
+            @test functor isa RealLabelNormalization.LogMinMaxScaleBack
+            
+            # Test elementwise denormalization using functor
+            denormalized = [functor(x) for x in normalized]
+            @test isapprox(denormalized, labels, atol=1e-6)
+            
+            # Test specific values
+            @test isapprox(functor(-1.0), labels[1], atol=1e-6)  # min
+            @test isapprox(functor(1.0), labels[end], atol=1e-6)  # max
+            
+            # Test type matches input (Float64 in this case)
+            @test functor isa RealLabelNormalization.LogMinMaxScaleBack{Float64}
+            @test functor.offset isa Float64
+            @test functor.log_min isa Float64
+            @test functor.log_max isa Float64
+            @test functor.range_low isa Float64
+            @test functor.range_high isa Float64
+            
+            # Test with Float32 inputs to get Float32 functors
+            labels_f32 = Float32[1.0, 2.0, 3.0, 4.0, 5.0, 100.0]
+            stats_f32 = compute_normalization_stats(labels_f32; method=:log_minmax, clip_quantiles=nothing)
+            functor_f32 = stats_f32[:scale_back_functor]
+            @test functor_f32 isa RealLabelNormalization.LogMinMaxScaleBack{Float32}
+        end
+        
+        @testset "LogMinMax Comparison with Other Methods" begin
+            # Compare behavior with skewed data
+            labels_skewed = [1.0, 2.0, 3.0, 4.0, 5.0, 1000.0]
+            
+            # Min-max: extreme value dominates the range
+            stats_minmax = compute_normalization_stats(labels_skewed; method=:minmax, clip_quantiles=nothing)
+            normalized_minmax = apply_normalization(labels_skewed, stats_minmax)
+            
+            # Log: unbounded, reduces skewness
+            stats_log = compute_normalization_stats(labels_skewed; method=:log, clip_quantiles=nothing)
+            normalized_log = apply_normalization(labels_skewed, stats_log)
+            
+            # Log+MinMax: bounded like min-max, but better distribution for skewed data
+            stats_lm = compute_normalization_stats(labels_skewed; method=:log_minmax, clip_quantiles=nothing)
+            normalized_lm = apply_normalization(labels_skewed, stats_lm)
+            
+            # Check boundedness
+            @test all(-1 ≤ x ≤ 1 for x in normalized_minmax)  # Bounded
+            @test all(-1 ≤ x ≤ 1 for x in normalized_lm)  # Bounded
+            
+            # Log should spread out the smaller values better than pure min-max
+            non_extreme_std_minmax = std(normalized_minmax[1:5])
+            non_extreme_std_lm = std(normalized_lm[1:5])
+            
+            # Log+minmax should spread smaller values more than pure minmax
+            @test non_extreme_std_lm > non_extreme_std_minmax
+        end
+    end
+    
     @testset "Functor-based Denormalization" begin
         @testset "MinMaxScaleBack Functor" begin
             # Test basic min-max scale back
@@ -1900,6 +2216,14 @@ using Statistics
             stats_log = compute_normalization_stats(labels; method=:log, clip_quantiles=nothing)
             @test stats_log[:scale_back_functor] isa RealLabelNormalization.LogScaleBack{Float64}
             
+            # ZScoreMinMax functor - Float64
+            stats_zm = compute_normalization_stats(labels; method=:zscore_minmax, clip_quantiles=nothing)
+            @test stats_zm[:scale_back_functor] isa RealLabelNormalization.ZScoreMinMaxScaleBack{Float64}
+            
+            # LogMinMax functor - Float64
+            stats_lm = compute_normalization_stats(labels; method=:log_minmax, clip_quantiles=nothing)
+            @test stats_lm[:scale_back_functor] isa RealLabelNormalization.LogMinMaxScaleBack{Float64}
+            
             # Test Float32 inputs produce Float32 functors
             labels_f32 = Float32[1.0, 2.0, 3.0, 4.0, 5.0]
             
@@ -1911,6 +2235,12 @@ using Statistics
             
             stats_log_f32 = compute_normalization_stats(labels_f32; method=:log, clip_quantiles=nothing)
             @test stats_log_f32[:scale_back_functor] isa RealLabelNormalization.LogScaleBack{Float32}
+            
+            stats_zm_f32 = compute_normalization_stats(labels_f32; method=:zscore_minmax, clip_quantiles=nothing)
+            @test stats_zm_f32[:scale_back_functor] isa RealLabelNormalization.ZScoreMinMaxScaleBack{Float32}
+            
+            stats_lm_f32 = compute_normalization_stats(labels_f32; method=:log_minmax, clip_quantiles=nothing)
+            @test stats_lm_f32[:scale_back_functor] isa RealLabelNormalization.LogMinMaxScaleBack{Float32}
             
             # Columnwise functor - Float64
             labels_2d = [1.0 10.0; 2.0 20.0]

@@ -111,6 +111,55 @@ function _compute_stats_vector(
             clip_bounds=clip_bounds,
             scale_back_functor=functor
         )
+    elseif method == :log_minmax
+        # Compute log transformation first
+        valid_data = filter(!isnan, labels)
+        if isempty(valid_data)
+            if warn_on_nan
+                @warn "All values are NaN, cannot compute log+minmax normalization statistics"
+            end
+            functor = LogMinMaxScaleBack{T}(convert(T, NaN), convert(T, NaN), convert(T, NaN), T(range[1]), T(range[2]))
+            return (
+                method=:log_minmax,
+                offset=convert(T, NaN),
+                log_min=convert(T, NaN),
+                log_max=convert(T, NaN),
+                range=range,
+                log_shift=convert(T, log_shift),
+                mode=:vector,
+                clip_quantiles=clip_quantiles,
+                clip_bounds=clip_bounds,
+                scale_back_functor=functor
+            )
+        end
+        
+        min_val = minimum(valid_data)
+        offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
+        offset = convert(T, offset)
+        
+        # Apply log transformation
+        log_values = [isnan(x) ? NaN : log(x + offset) for x in labels]
+        valid_log = filter(!isnan, log_values)
+        if !isempty(valid_log)
+            log_min, log_max = extrema(valid_log)
+            log_min, log_max = convert(T, log_min), convert(T, log_max)
+        else
+            log_min, log_max = convert(T, NaN), convert(T, NaN)
+        end
+        
+        functor = LogMinMaxScaleBack{T}(offset, log_min, log_max, T(range[1]), T(range[2]))
+        return (
+            method=:log_minmax,
+            offset=offset,
+            log_min=log_min,
+            log_max=log_max,
+            range=range,
+            log_shift=convert(T, log_shift),
+            mode=:vector,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
     else # :log
         valid_data = filter(!isnan, labels)
         if isempty(valid_data)
@@ -229,6 +278,55 @@ function _compute_stats_global(
             z_min=z_min,
             z_max=z_max,
             range=range,
+            mode=:global,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
+    elseif method == :log_minmax
+        # Compute log transformation first
+        valid_data = filter(!isnan, vec(labels))
+        if isempty(valid_data)
+            if warn_on_nan
+                @warn "All values are NaN, cannot compute log+minmax normalization statistics"
+            end
+            functor = LogMinMaxScaleBack{T}(convert(T, NaN), convert(T, NaN), convert(T, NaN), T(range[1]), T(range[2]))
+            return (
+                method=:log_minmax,
+                offset=convert(T, NaN),
+                log_min=convert(T, NaN),
+                log_max=convert(T, NaN),
+                range=range,
+                log_shift=convert(T, log_shift),
+                mode=:global,
+                clip_quantiles=clip_quantiles,
+                clip_bounds=clip_bounds,
+                scale_back_functor=functor
+            )
+        end
+        
+        min_val = minimum(valid_data)
+        offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
+        offset = convert(T, offset)
+        
+        # Apply log transformation
+        log_values = [isnan(x) ? NaN : log(x + offset) for x in vec(labels)]
+        valid_log = filter(!isnan, log_values)
+        if !isempty(valid_log)
+            log_min, log_max = extrema(valid_log)
+            log_min, log_max = convert(T, log_min), convert(T, log_max)
+        else
+            log_min, log_max = convert(T, NaN), convert(T, NaN)
+        end
+        
+        functor = LogMinMaxScaleBack{T}(offset, log_min, log_max, T(range[1]), T(range[2]))
+        return (
+            method=:log_minmax,
+            offset=offset,
+            log_min=log_min,
+            log_max=log_max,
+            range=range,
+            log_shift=convert(T, log_shift),
             mode=:global,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
@@ -380,6 +478,54 @@ function _compute_stats_columnwise(
             clip_bounds=clip_bounds,
             scale_back_functor=col_functor
         )
+    elseif method == :log_minmax
+        offsets = T[]
+        log_mins = T[]
+        log_maxs = T[]
+        functors = LogMinMaxScaleBack{T}[]
+        for col in 1:n_cols
+            valid_data = filter(!isnan, labels[:, col])
+            if isempty(valid_data)
+                if warn_on_nan
+                    @warn "Column $col has all NaN values, cannot compute log+minmax normalization statistics"
+                end
+                push!(offsets, convert(T, NaN))
+                push!(log_mins, convert(T, NaN))
+                push!(log_maxs, convert(T, NaN))
+                push!(functors, LogMinMaxScaleBack{T}(convert(T, NaN), convert(T, NaN), convert(T, NaN), T(range[1]), T(range[2])))
+            else
+                min_val = minimum(valid_data)
+                offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
+                offset = convert(T, offset)
+                push!(offsets, offset)
+                
+                # Apply log transformation
+                log_values = [isnan(x) ? NaN : log(x + offset) for x in labels[:, col]]
+                valid_log = filter(!isnan, log_values)
+                if !isempty(valid_log)
+                    log_min, log_max = extrema(valid_log)
+                    log_min, log_max = convert(T, log_min), convert(T, log_max)
+                else
+                    log_min, log_max = convert(T, NaN), convert(T, NaN)
+                end
+                push!(log_mins, log_min)
+                push!(log_maxs, log_max)
+                push!(functors, LogMinMaxScaleBack{T}(offset, log_min, log_max, T(range[1]), T(range[2])))
+            end
+        end
+        col_functor = ColumnwiseScaleBack{T, LogMinMaxScaleBack{T}}(functors)
+        return (
+            method=:log_minmax,
+            offsets=offsets,
+            log_mins=log_mins,
+            log_maxs=log_maxs,
+            range=range,
+            log_shift=convert(T, log_shift),
+            mode=:columnwise,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
+        )
     else # :log
         offsets = T[]
         functors = LogScaleBack{T}[]
@@ -518,6 +664,54 @@ function _compute_stats_rowwise(
             z_mins=z_mins,
             z_maxs=z_maxs,
             range=range,
+            mode=:rowwise,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
+        )
+    elseif method == :log_minmax
+        offsets = T[]
+        log_mins = T[]
+        log_maxs = T[]
+        functors = LogMinMaxScaleBack{T}[]
+        for row in 1:n_rows
+            valid_data = filter(!isnan, labels[row, :])
+            if isempty(valid_data)
+                if warn_on_nan
+                    @warn "Row $row has all NaN values, cannot compute log+minmax normalization statistics"
+                end
+                push!(offsets, convert(T, NaN))
+                push!(log_mins, convert(T, NaN))
+                push!(log_maxs, convert(T, NaN))
+                push!(functors, LogMinMaxScaleBack{T}(convert(T, NaN), convert(T, NaN), convert(T, NaN), T(range[1]), T(range[2])))
+            else
+                min_val = minimum(valid_data)
+                offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0
+                offset = convert(T, offset)
+                push!(offsets, offset)
+                
+                # Apply log transformation
+                log_values = [isnan(x) ? NaN : log(x + offset) for x in labels[row, :]]
+                valid_log = filter(!isnan, log_values)
+                if !isempty(valid_log)
+                    log_min, log_max = extrema(valid_log)
+                    log_min, log_max = convert(T, log_min), convert(T, log_max)
+                else
+                    log_min, log_max = convert(T, NaN), convert(T, NaN)
+                end
+                push!(log_mins, log_min)
+                push!(log_maxs, log_max)
+                push!(functors, LogMinMaxScaleBack{T}(offset, log_min, log_max, T(range[1]), T(range[2])))
+            end
+        end
+        row_functor = RowwiseScaleBack{T, LogMinMaxScaleBack{T}}(functors)
+        return (
+            method=:log_minmax,
+            offsets=offsets,
+            log_mins=log_mins,
+            log_maxs=log_maxs,
+            range=range,
+            log_shift=convert(T, log_shift),
             mode=:rowwise,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
