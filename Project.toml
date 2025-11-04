@@ -1,7 +1,7 @@
 name = "RealLabelNormalization"
 uuid = "8d35fa01-733e-4c31-a932-545268b5cf98"
 authors = ["Shane Kuei-Hsien Chu (skchu@wustl.edu)"]
-version = "1.0.5"
+version = "1.0.6"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
