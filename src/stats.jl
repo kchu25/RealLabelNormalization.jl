@@ -67,6 +67,50 @@ function _compute_stats_vector(
             clip_bounds=clip_bounds,
             scale_back_functor=functor
         )
+    elseif method == :zscore_minmax
+        # Compute z-scores first
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
+        mu, sigma = convert(T, mu), convert(T, sigma)
+        
+        if sigma == 0 || isnan(sigma)
+            # Handle edge case: return simple functor that returns mean
+            functor = ZScoreMinMaxScaleBack{T}(mu, sigma, T(0), T(0), T(range[1]), T(range[2]))
+            return (
+                method=:zscore_minmax,
+                mean=mu,
+                std=sigma,
+                z_min=T(0),
+                z_max=T(0),
+                range=range,
+                mode=:vector,
+                clip_quantiles=clip_quantiles,
+                clip_bounds=clip_bounds,
+                scale_back_functor=functor
+            )
+        end
+        
+        z_scores = (labels .- mu) ./ sigma
+        valid_z = filter(!isnan, z_scores)
+        if !isempty(valid_z)
+            z_min, z_max = extrema(valid_z)
+            z_min, z_max = convert(T, z_min), convert(T, z_max)
+        else
+            z_min, z_max = convert(T, NaN), convert(T, NaN)
+        end
+        
+        functor = ZScoreMinMaxScaleBack{T}(mu, sigma, z_min, z_max, T(range[1]), T(range[2]))
+        return (
+            method=:zscore_minmax,
+            mean=mu,
+            std=sigma,
+            z_min=z_min,
+            z_max=z_max,
+            range=range,
+            mode=:vector,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
     else # :log
         valid_data = filter(!isnan, labels)
         if isempty(valid_data)
@@ -143,6 +187,49 @@ function _compute_stats_global(
             mean=mu, 
             std=sigma, 
             mode=:global, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
+    elseif method == :zscore_minmax
+        # Compute z-scores first
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
+        mu, sigma = convert(T, mu), convert(T, sigma)
+        
+        if sigma == 0 || isnan(sigma)
+            functor = ZScoreMinMaxScaleBack{T}(mu, sigma, T(0), T(0), T(range[1]), T(range[2]))
+            return (
+                method=:zscore_minmax,
+                mean=mu,
+                std=sigma,
+                z_min=T(0),
+                z_max=T(0),
+                range=range,
+                mode=:global,
+                clip_quantiles=clip_quantiles,
+                clip_bounds=clip_bounds,
+                scale_back_functor=functor
+            )
+        end
+        
+        z_scores = (labels .- mu) ./ sigma
+        valid_z = filter(!isnan, vec(z_scores))
+        if !isempty(valid_z)
+            z_min, z_max = extrema(valid_z)
+            z_min, z_max = convert(T, z_min), convert(T, z_max)
+        else
+            z_min, z_max = convert(T, NaN), convert(T, NaN)
+        end
+        
+        functor = ZScoreMinMaxScaleBack{T}(mu, sigma, z_min, z_max, T(range[1]), T(range[2]))
+        return (
+            method=:zscore_minmax,
+            mean=mu,
+            std=sigma,
+            z_min=z_min,
+            z_max=z_max,
+            range=range,
+            mode=:global,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
             scale_back_functor=functor
@@ -250,6 +337,49 @@ function _compute_stats_columnwise(
             clip_bounds=clip_bounds,
             scale_back_functor=col_functor
         )
+    elseif method == :zscore_minmax
+        means = T[]
+        stds = T[]
+        z_mins = T[]
+        z_maxs = T[]
+        functors = ZScoreMinMaxScaleBack{T}[]
+        for col in 1:n_cols
+            mu, sigma = _safe_mean_std(labels[:, col]; warn_on_nan=warn_on_nan)
+            mu, sigma = convert(T, mu), convert(T, sigma)
+            push!(means, mu)
+            push!(stds, sigma)
+            
+            if sigma == 0 || isnan(sigma)
+                push!(z_mins, T(0))
+                push!(z_maxs, T(0))
+                push!(functors, ZScoreMinMaxScaleBack{T}(mu, sigma, T(0), T(0), T(range[1]), T(range[2])))
+            else
+                z_scores = (labels[:, col] .- mu) ./ sigma
+                valid_z = filter(!isnan, z_scores)
+                if !isempty(valid_z)
+                    z_min, z_max = extrema(valid_z)
+                    z_min, z_max = convert(T, z_min), convert(T, z_max)
+                else
+                    z_min, z_max = convert(T, NaN), convert(T, NaN)
+                end
+                push!(z_mins, z_min)
+                push!(z_maxs, z_max)
+                push!(functors, ZScoreMinMaxScaleBack{T}(mu, sigma, z_min, z_max, T(range[1]), T(range[2])))
+            end
+        end
+        col_functor = ColumnwiseScaleBack{T, ZScoreMinMaxScaleBack{T}}(functors)
+        return (
+            method=:zscore_minmax,
+            means=means,
+            stds=stds,
+            z_mins=z_mins,
+            z_maxs=z_maxs,
+            range=range,
+            mode=:columnwise,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
+        )
     else # :log
         offsets = T[]
         functors = LogScaleBack{T}[]
@@ -346,6 +476,49 @@ function _compute_stats_rowwise(
             means=means, 
             stds=stds, 
             mode=:rowwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
+        )
+    elseif method == :zscore_minmax
+        means = T[]
+        stds = T[]
+        z_mins = T[]
+        z_maxs = T[]
+        functors = ZScoreMinMaxScaleBack{T}[]
+        for row in 1:n_rows
+            mu, sigma = _safe_mean_std(labels[row, :]; warn_on_nan=warn_on_nan)
+            mu, sigma = convert(T, mu), convert(T, sigma)
+            push!(means, mu)
+            push!(stds, sigma)
+            
+            if sigma == 0 || isnan(sigma)
+                push!(z_mins, T(0))
+                push!(z_maxs, T(0))
+                push!(functors, ZScoreMinMaxScaleBack{T}(mu, sigma, T(0), T(0), T(range[1]), T(range[2])))
+            else
+                z_scores = (labels[row, :] .- mu) ./ sigma
+                valid_z = filter(!isnan, z_scores)
+                if !isempty(valid_z)
+                    z_min, z_max = extrema(valid_z)
+                    z_min, z_max = convert(T, z_min), convert(T, z_max)
+                else
+                    z_min, z_max = convert(T, NaN), convert(T, NaN)
+                end
+                push!(z_mins, z_min)
+                push!(z_maxs, z_max)
+                push!(functors, ZScoreMinMaxScaleBack{T}(mu, sigma, z_min, z_max, T(range[1]), T(range[2])))
+            end
+        end
+        row_functor = RowwiseScaleBack{T, ZScoreMinMaxScaleBack{T}}(functors)
+        return (
+            method=:zscore_minmax,
+            means=means,
+            stds=stds,
+            z_mins=z_mins,
+            z_maxs=z_maxs,
+            range=range,
+            mode=:rowwise,
             clip_quantiles=clip_quantiles,
             clip_bounds=clip_bounds,
             scale_back_functor=row_functor

@@ -81,6 +81,46 @@ function (f::LogScaleBack)(x)
 end
 
 """
+    ZScoreMinMaxScaleBack{T<:AbstractFloat}
+
+Functor for denormalizing values that were z-score normalized then min-max scaled.
+Compatible with CUDA kernels - all fields are scalars (bitstype).
+
+This handles the two-step normalization: z-score → min-max bounds.
+
+# Fields
+- `mean::T`: Original mean value (for z-score)
+- `std::T`: Original standard deviation (for z-score)
+- `z_min::T`: Minimum z-score value from training data
+- `z_max::T`: Maximum z-score value from training data
+- `range_low::T`: Lower bound applied after z-score
+- `range_high::T`: Upper bound applied after z-score
+
+# Example
+```julia
+functor = ZScoreMinMaxScaleBack{Float32}(3.0f0, 1.5f0, -2.0f0, 2.0f0, 0.0f0, 1.0f0)
+# Denormalizes a value that was z-score normalized then scaled to [0,1]
+original = functor(0.5f0)  
+```
+"""
+struct ZScoreMinMaxScaleBack{T<:AbstractFloat}
+    mean::T
+    std::T
+    z_min::T
+    z_max::T
+    range_low::T
+    range_high::T
+end
+
+function (f::ZScoreMinMaxScaleBack)(x)
+    # First reverse the min-max scaling back to z-score range
+    range_01 = (x - f.range_low) / (f.range_high - f.range_low)
+    z_score = f.z_min + range_01 * (f.z_max - f.z_min)
+    # Then reverse z-score to original scale
+    return z_score * f.std + f.mean
+end
+
+"""
     ColumnwiseScaleBack{T<:AbstractFloat, F, N}
 
 Functor for denormalizing columnwise-normalized values.

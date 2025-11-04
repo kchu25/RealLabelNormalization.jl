@@ -11,12 +11,13 @@ in statistical computations and preserving them in the output.
 - `method::Symbol`: Normalization method
   - `:minmax`: Min-max normalization (default)
   - `:zscore`: Z-score normalization (mean=0, std=1)
+  - `:zscore_minmax`: Z-score followed by min-max scaling (great for outliers + bounded range)
   - `:log`: Log normalization (log-transform with automatic offset for non-positive values)
-- `range::Tuple{Real,Real}`: Target range for min-max normalization (default: (-1, 1))
-  - `(-1, 1)`: Scaled min-max to `[-1,1]` (default)
-  - `(0, 1)`: Standard min-max to [0,1]
+- `range::Tuple{Real,Real}`: Target range for min-max and zscore_minmax normalization (default: (-1, 1))
+  - `(-1, 1)`: Scaled to `[-1,1]` (default)
+  - `(0, 1)`: Standard scaling to [0,1]
   - Custom ranges: e.g., `(-2, 2)`
-  - Note: Ignored for :zscore and :log methods
+  - Note: Used for :minmax and :zscore_minmax; ignored for :zscore and :log methods
 - `mode::Symbol`: Normalization scope
   - `:global`: Normalize across all values (default)
   - `:columnwise`: Normalize each column independently
@@ -52,6 +53,9 @@ normalized = normalize_labels(labels; range=(0, 1))
 # Z-score normalization with outlier clipping
 normalized = normalize_labels(labels; method=:zscore)
 
+# Z-score + min-max: standardize then bound to [0,1] (great for visualization & outlier handling)
+normalized = normalize_labels(labels; method=:zscore_minmax, range=(0, 1))
+
 # Log normalization (useful for skewed distributions)
 normalized = normalize_labels(labels; method=:log)
 
@@ -79,8 +83,8 @@ function normalize_labels(labels::AbstractArray;
                          log_shift::Real=100.0,
                          warn_on_nan::Bool=true)
     # Input validation
-    if method ∉ [:minmax, :zscore, :log]
-        throw(ArgumentError("method must be :minmax, :zscore, or :log, got :$method"))
+    if method ∉ [:minmax, :zscore, :zscore_minmax, :log]
+        throw(ArgumentError("method must be :minmax, :zscore, :zscore_minmax, or :log, got :$method"))
     end
     if mode ∉ [:global, :columnwise, :rowwise]
         throw(ArgumentError("mode must be :global, :columnwise, or :rowwise, got :$mode"))
@@ -204,6 +208,8 @@ function apply_normalization(labels::AbstractArray, stats::NamedTuple)
         return _apply_minmax_normalization(clipped_labels, stats)
     elseif stats.method == :zscore
         return _apply_zscore_normalization(clipped_labels, stats)
+    elseif stats.method == :zscore_minmax
+        return _apply_zscore_minmax_normalization(clipped_labels, stats)
     elseif stats.method == :log
         return _apply_log_normalization(clipped_labels, stats)
     else

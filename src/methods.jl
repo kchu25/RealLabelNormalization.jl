@@ -53,6 +53,44 @@ function _scale_to_range(normalized_01::AbstractArray, range::Tuple{Real,Real})
     return range[1] .+ normalized_01 .* (range[2] - range[1])
 end
 
+# Helper function for zscore + minmax normalization
+function _zscore_minmax_normalize(data::AbstractArray, range::Tuple{Real,Real}; warn_on_nan::Bool=true)
+    # Step 1: Z-score normalization
+    mu, sigma = _safe_mean_std(data; warn_on_nan=warn_on_nan)
+    if isnan(mu) || isnan(sigma)
+        if warn_on_nan
+            @warn "Cannot compute z-score with NaN statistics, returning NaN array"
+        end
+        return fill(NaN, size(data)), NaN, NaN, NaN, NaN
+    end
+    if sigma == 0
+        if warn_on_nan
+            @warn "Standard deviation is zero, returning zeros"
+        end
+        return zeros(eltype(data), size(data)), mu, sigma, 0.0, 0.0
+    end
+    
+    z_scores = (data .- mu) ./ sigma
+    
+    # Step 2: Min-max normalization on the z-scores
+    valid_z = filter(!isnan, z_scores)
+    if isempty(valid_z)
+        return fill(NaN, size(data)), mu, sigma, NaN, NaN
+    end
+    
+    z_min, z_max = extrema(valid_z)
+    if z_min == z_max
+        # All z-scores are the same (shouldn't happen unless sigma=0, already handled)
+        return zeros(eltype(data), size(data)), mu, sigma, z_min, z_max
+    end
+    
+    # Scale z-scores from [z_min, z_max] to target range
+    normalized_01 = (z_scores .- z_min) ./ (z_max - z_min)
+    result = _scale_to_range(normalized_01, range)
+    
+    return result, mu, sigma, z_min, z_max
+end
+
 function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; 
                         warn_on_nan::Bool=true)
     if method == :minmax
@@ -74,6 +112,9 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
             return zeros(eltype(labels), size(labels))
         end
         return (labels .- mu) ./ sigma
+    elseif method == :zscore_minmax
+        result, _, _, _, _ = _zscore_minmax_normalize(labels, range; warn_on_nan=warn_on_nan)
+        return result
     else # :log
         # Compute offset to ensure all values are positive
         valid_data = filter(!isnan, labels)
@@ -118,6 +159,9 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
             return zeros(eltype(labels), size(labels))
         end
         return (labels .- mu) ./ sigma
+    elseif method == :zscore_minmax
+        result, _, _, _, _ = _zscore_minmax_normalize(labels, range; warn_on_nan=warn_on_nan)
+        return result
     else # :log
         # Compute offset to ensure all values are positive
         valid_data = filter(!isnan, vec(labels))
@@ -164,6 +208,9 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
             else
                 normalized[:, col] = (column_data .- mu) ./ sigma
             end
+        elseif method == :zscore_minmax
+            result, _, _, _, _ = _zscore_minmax_normalize(column_data, range; warn_on_nan=warn_on_nan)
+            normalized[:, col] = result
         else # :log
             valid_data = filter(!isnan, column_data)
             if isempty(valid_data)
@@ -209,6 +256,9 @@ function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple
             else
                 normalized[row, :] = (row_data .- mu) ./ sigma
             end
+        elseif method == :zscore_minmax
+            result, _, _, _, _ = _zscore_minmax_normalize(row_data, range; warn_on_nan=warn_on_nan)
+            normalized[row, :] = result
         else # :log
             valid_data = filter(!isnan, row_data)
             if isempty(valid_data)
@@ -343,3 +393,69 @@ function _apply_log_normalization(labels::AbstractArray, stats::NamedTuple)
         return normalized
     end
 end
+
+function _apply_zscore_minmax_normalization(labels::AbstractArray, stats::NamedTuple)
+    if stats.mode == :vector || stats.mode == :global
+        mu = stats.mean
+        sigma = stats.std
+        z_min = stats.z_min
+        z_max = stats.z_max
+        range_low, range_high = stats.range
+        
+        result = similar(labels)
+        for i in eachindex(labels)
+            if isnan(labels[i])
+                result[i] = NaN
+            else
+                # Step 1: Z-score normalization
+                z = sigma == 0.0 ? 0.0 : (labels[i] - mu) / sigma
+                # Step 2: Min-max to [0,1]
+                norm_01 = (z_max == z_min) ? 0.0 : (z - z_min) / (z_max - z_min)
+                # Step 3: Scale to target range
+                result[i] = range_low + norm_01 * (range_high - range_low)
+            end
+        end
+        return result
+    elseif stats.mode == :columnwise
+        normalized = similar(labels)
+        for col in axes(labels, 2)
+            mu = stats.means[col]
+            sigma = stats.stds[col]
+            z_min = stats.z_mins[col]
+            z_max = stats.z_maxs[col]
+            range_low, range_high = stats.range
+            
+            for i in axes(labels, 1)
+                if isnan(labels[i, col])
+                    normalized[i, col] = NaN
+                else
+                    z = sigma == 0.0 ? 0.0 : (labels[i, col] - mu) / sigma
+                    norm_01 = (z_max == z_min) ? 0.0 : (z - z_min) / (z_max - z_min)
+                    normalized[i, col] = range_low + norm_01 * (range_high - range_low)
+                end
+            end
+        end
+        return normalized
+    else # :rowwise
+        normalized = similar(labels)
+        for row in axes(labels, 1)
+            mu = stats.means[row]
+            sigma = stats.stds[row]
+            z_min = stats.z_mins[row]
+            z_max = stats.z_maxs[row]
+            range_low, range_high = stats.range
+            
+            for i in axes(labels, 2)
+                if isnan(labels[row, i])
+                    normalized[row, i] = NaN
+                else
+                    z = sigma == 0.0 ? 0.0 : (labels[row, i] - mu) / sigma
+                    norm_01 = (z_max == z_min) ? 0.0 : (z - z_min) / (z_max - z_min)
+                    normalized[row, i] = range_low + norm_01 * (range_high - range_low)
+                end
+            end
+        end
+        return normalized
+    end
+end
+

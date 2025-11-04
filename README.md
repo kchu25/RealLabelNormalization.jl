@@ -1,25 +1,23 @@
 # RealLabelNormalization.jl
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://kchu25.github.io/RealLabelNormalization.jl/stable/)
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://kchu25.github.io/RealLabelNormalization.jl/dev/)
 [![Build Status](https://github.com/kchu25/RealLabelNormalization.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/kchu25/RealLabelNormalization.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/kchu25/RealLabelNormalization.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/kchu25/RealLabelNormalization.jl)
 
-**Leak-free label normalization for machine learning in Julia.**
-
-Provides robust workflows for normalizing real-valued regression labels while preventing data leakage, handling outliers, and preserving NaNs.
+Leak-free label normalization for machine learning in Julia.
 
 ## Why This Package?
 
+Prevents data leakage by computing statistics on training data only:
+
 ```julia
-# ❌ Common mistake: data leakage
+# Wrong: statistics leak from test set
 all_data = [train_data; test_data]
 normalized = (all_data .- mean(all_data)) ./ std(all_data)
 
-# ✅ Correct approach: compute stats on training data only
+# Correct: stats from training only
 stats = compute_normalization_stats(train_data)
 train_norm = apply_normalization(train_data, stats)
-test_norm = apply_normalization(test_data, stats)  # Same stats!
+test_norm = apply_normalization(test_data, stats)  # Same stats
 ```
 
 ## Installation
@@ -29,218 +27,141 @@ using Pkg
 Pkg.add("RealLabelNormalization")
 ```
 
-## Quick Start (Stats-Based Workflow)
-
+## Quick Start
 
 ```julia
 using RealLabelNormalization
 
-# Training labels with outlier
-train_labels = [1.5, 2.3, 4.1, 3.7, 5.2, 100.0]
-test_labels = [2.1, 3.9, 4.5]
+# 1. Compute stats from training data ONLY
+stats = compute_normalization_stats(train_labels; method=:zscore)
 
-# Step 1: Compute stats from TRAINING DATA ONLY
-stats = compute_normalization_stats(train_labels; method=:zscore, clip_quantiles=(0.01, 0.99))
+# 2. Apply same stats to all splits
+train_norm = apply_normalization(train_labels, stats)
+test_norm = apply_normalization(test_labels, stats)
 
-# Step 2: Apply SAME stats to training data
-train_normalized = apply_normalization(train_labels, stats)
+# 3. Train model on normalized data
+# model = train(X_train, train_norm)
 
-# Step 3: Apply SAME STATS to test data (prevents data leakage!)
-test_normalized = apply_normalization(test_labels, stats)
-
-# Step 4: Train model on normalized data
-# model = train_your_model(X_train, train_normalized)
-
-# Step 5: Denormalize predictions back to original scale using SAME stats
-predictions_normalized = model(X_test)  # Model outputs normalized predictions
-predictions_original = denormalize_labels(predictions_normalized, stats)
+# 4. Denormalize predictions using same stats
+predictions_original = denormalize_labels(model(X_test), stats)
 ```
 
-## Supported Data Types and Modes
+## Normalization Methods
 
-**Data Types:**
-- **Vectors**: Single-target regression (e.g., `[1.0, 2.0, 3.0]`)
-- **Matrices**: Multi-target regression (e.g., `[1.0 2.0; 3.0 4.0]`)
+| Method | Description | Use Case |
+|--------|-------------|----------|
+| `:minmax` | Scale to range | Bounded output (e.g., [0,1], [-1,1]) |
+| `:zscore` | Zero mean, unit variance | Standard scaling, unbounded |
+| `:zscore_minmax` | Z-score then min-max | Outlier handling + bounded range |
+| `:log` | Log transform | Skewed distributions |
 
-**Note:** For `compute_normalization_stats`, the `mode` parameter only applies to matrices; the `mode` argument is ignored for vectors and normalization is always applied globally across all elements.
+## Modes (Matrices Only)
 
-**Default Mode for Matrices:** The default mode is `:rowwise` since Flux.jl (and many ML frameworks) use the last dimension as the number of data points, making row-wise normalization the most common use case.
+| Mode | Description |
+|------|-------------|
+| `:rowwise` (default) | Normalize each row independently |
+| `:columnwise` | Normalize each column independently |
+| `:global` | Single normalization across all values |
 
-## Usage Examples (Stats-Based Workflow)
+Note: Vectors are always normalized globally.
 
-### Single-Target Regression (Vectors)
+## Examples
+
+### Single-Target Regression
+
 ```julia
-train_labels = [1.0, 5.0, 3.0, 8.0, 2.0, 100.0]
-test_labels = [1.2, 4.8, 6.5]
+train = [1.0, 5.0, 3.0, 8.0, 100.0]  # Outlier present
+test = [1.2, 4.8, 6.5]
 
-# Step 1: Compute stats from training data ONLY
-# Note: mode parameter is ignored for vectors
-stats_minmax = compute_normalization_stats(train_labels; method=:minmax, range=(-1, 1))
-stats_zscore = compute_normalization_stats(train_labels; method=:zscore)
-stats_log = compute_normalization_stats(train_labels; method=:log)
+# Min-max to [0,1]
+stats = compute_normalization_stats(train; method=:minmax, range=(0,1))
+train_norm = apply_normalization(train, stats)
+test_norm = apply_normalization(test, stats)
 
-# Step 2: Apply SAME stats to both training and test
-train_norm = apply_normalization(train_labels, stats_minmax)
-test_norm = apply_normalization(test_labels, stats_minmax)  # Same stats!
+# Z-score with outlier clipping
+stats = compute_normalization_stats(train; method=:zscore, clip_quantiles=(0.01, 0.99))
+train_norm = apply_normalization(train, stats)
 
-# Log normalization is especially useful for skewed distributions
-train_log = apply_normalization(train_labels, stats_log)
-test_log = apply_normalization(test_labels, stats_log)
-
-# Step 3: Denormalize predictions using SAME stats
-predictions_norm = model(X_test)
-predictions_original = denormalize_labels(predictions_norm, stats_minmax)
+# Z-score + min-max: best of both worlds
+stats = compute_normalization_stats(train; method=:zscore_minmax, range=(0,1))
+train_norm = apply_normalization(train, stats)
 ```
 
-### Multi-Target Regression (Matrices)
+### Multi-Target Regression
+
 ```julia
 # Weather data: [temperature, humidity, pressure]
 weather_train = [20.5 65.0 1013.2; 22.1 58.3 1015.8; 18.9 72.1 1008.9]
-weather_val = [19.8 70.2 1011.5; 23.1 55.0 1018.3]
 weather_test = [21.3 62.1 1014.7; 17.2 75.8 1009.2]
 
-# Step 1: Compute stats ONCE from training data
-# mode parameter applies to matrices - normalize each column separately
+# Normalize each column (feature) independently
 stats = compute_normalization_stats(weather_train; mode=:columnwise, method=:zscore)
-
-# Step 2: Apply SAME stats to all splits
 train_norm = apply_normalization(weather_train, stats)
-val_norm = apply_normalization(weather_val, stats)      # Same stats
-test_norm = apply_normalization(weather_test, stats)    # Same stats
-
-# Step 3: Denormalize predictions using SAME stats
-val_pred_original = denormalize_labels(model(X_val), stats)
-test_pred_original = denormalize_labels(model(X_test), stats)
+test_norm = apply_normalization(weather_test, stats)
 ```
 
-### Handling Missing Data
+### Handling NaNs
+
 ```julia
-train_with_nan = [1.0, 2.0, NaN, 4.0, 5.0, 100.0]
-test_with_nan = [1.5, NaN, 3.2]
+train = [1.0, 2.0, NaN, 4.0, 5.0]
+test = [1.5, NaN, 3.2]
 
-# Step 1: Stats computed only on valid (non-NaN) training values
-stats = compute_normalization_stats(train_with_nan)  # Uses [1.0, 2.0, 4.0, 5.0, 100.0]
-
-# Step 2: NaN positions preserved in both training and test
-train_norm = apply_normalization(train_with_nan, stats)  # NaNs preserved
-test_norm = apply_normalization(test_with_nan, stats)    # NaNs preserved, same stats
-
-# Step 3: Denormalize predictions using SAME stats
-predictions_original = denormalize_labels(predictions_normalized, stats)
+# Stats computed on non-NaN values only
+stats = compute_normalization_stats(train)
+train_norm = apply_normalization(train, stats)  # NaNs preserved
+test_norm = apply_normalization(test, stats)    # NaNs preserved
 ```
 
-### Log Normalization for Skewed Distributions
+### Log Normalization for Skewed Data
+
 ```julia
-# Log normalization is particularly useful for highly skewed data
-# (e.g., exponential distributions, power-law distributions)
+# Income data (highly skewed)
+income_train = [20000.0, 35000.0, 50000.0, 65000.0, 1000000.0]
+income_test = [25000.0, 45000.0]
 
-# Example: Income data (highly skewed)
-income_train = [20000.0, 35000.0, 50000.0, 65000.0, 80000.0, 1000000.0]  # Outlier
-income_test = [25000.0, 45000.0, 55000.0]
+stats = compute_normalization_stats(income_train; method=:log)
+train_log = apply_normalization(income_train, stats)
+test_log = apply_normalization(income_test, stats)
 
-# Step 1: Compute log normalization stats
-# Automatically handles negative values if present
-stats_log = compute_normalization_stats(income_train; method=:log, clip_quantiles=(0.01, 0.99))
-
-# Step 2: Apply log transformation (compresses large values)
-train_log = apply_normalization(income_train, stats_log)
-test_log = apply_normalization(income_test, stats_log)
-
-# Step 3: Train model on log-transformed data
-# model = train(X_train, train_log)
-
-# Step 4: Denormalize predictions back to original scale
-predictions_log = model(X_test)
-predictions_original = denormalize_labels(predictions_log, stats_log)
-
-# Log normalization works with negative values too!
-data_with_negatives = [-10.0, -5.0, 0.0, 5.0, 10.0, 100.0]
-stats_neg = compute_normalization_stats(data_with_negatives; method=:log)
-# Automatically adds offset to make all values positive before log transform
+# Handles negative values automatically
+data_with_neg = [-10.0, -5.0, 0.0, 5.0, 100.0]
+stats = compute_normalization_stats(data_with_neg; method=:log)
 ```
 
-## Integration with ML Frameworks
+### Integration with Flux.jl
 
-### Flux.jl - Workflow
 ```julia
 using Flux
 
-# Step 1: Compute normalization stats from training labels ONLY
-train_stats = compute_normalization_stats(Y_train; method=:zscore)
+# Normalize labels
+stats = compute_normalization_stats(Y_train; method=:zscore)
+Y_train_norm = apply_normalization(Y_train, stats)
+Y_val_norm = apply_normalization(Y_val, stats)
 
-# Step 2: Normalize all data splits using the SAME stats
-Y_train_norm = apply_normalization(Y_train, train_stats)
-Y_val_norm = apply_normalization(Y_val, train_stats)    # Same stats
-Y_test_norm = apply_normalization(Y_test, train_stats)  # Same stats
-
-# Step 3: Create DataLoaders with normalized labels
+# Create DataLoaders
 train_loader = Flux.DataLoader((X_train, Y_train_norm), batchsize=32, shuffle=true)
-val_loader = Flux.DataLoader((X_val, Y_val_norm), batchsize=32)
 
-# Step 4: Train model on normalized data
+# Train model
 model = Chain(Dense(input_dim => 64, relu), Dense(64 => output_dim))
-# ... training loop with normalized labels ...
+# ... training loop ...
 
-# Step 5: Make predictions and denormalize using SAME stats
-test_pred_norm = model(X_test)
-test_pred_original = denormalize_labels(test_pred_norm, train_stats)
-
-# Validation predictions also use the same stats
-val_pred_norm = model(X_val)  
-val_pred_original = denormalize_labels(val_pred_norm, train_stats)
+# Denormalize predictions
+predictions_norm = model(X_test)
+predictions_original = denormalize_labels(predictions_norm, stats)
 ```
-
-
-## Methods and Modes
-
-| Method   | Syntax        | Description                |
-|----------|---------------|----------------------------|
-| **Min-Max** | `method=:minmax, range=(-1,1)` | Scale to specified range    |
-| **Z-Score** | `method=:zscore` | Zero mean, unit variance   |
-| **Log** | `method=:log` | Log transformation (handles negative values with automatic offset) |
-
-
-| Mode     | Syntax         | Description                |
-|----------|----------------|----------------------------|
-| **Row-wise** | `mode=:rowwise` **(default for matrices)** | Per-row normalization       |
-| **Column-wise** | `mode=:columnwise` | Per-column normalization  |
-| **Global** | `mode=:global` | Single stats across all values|
-
-**Note:** Mode parameters (`:rowwise` (default), `:columnwise`, `:global`) only apply to **matrices**. For **vectors**, normalization is always performed globally regardless of the `mode` setting.
 
 ## API Reference
 
-**Core Functions (The Stats-Based Workflow):**
-- `compute_normalization_stats(train_data; method, mode, clip_quantiles, range)` - Compute stats from training data ONLY
-- `apply_normalization(data, stats)` - Apply precomputed stats to any dataset (train/val/test)
-- `denormalize_labels(normalized_predictions, stats)` - Convert predictions back using same stats
-
-**Convenience (Training Data Only):**
-- `normalize_labels(train_data; kwargs...)` - One-step normalization for training data (use stats-based workflow for test data)
+**Core Functions:**
+- `compute_normalization_stats(train_data; kwargs...)` - Compute stats from training data
+- `apply_normalization(data, stats)` - Apply precomputed stats
+- `denormalize_labels(normalized, stats)` - Convert back to original scale
 
 **Parameters:**
-- `method`: `:minmax` (default) or `:zscore`
-- `mode`: `:rowwise` (default for matrices), `:columnwise`, or `:global` (**matrices only** - ignored for vectors)
-- `clip_quantiles`: `(0.01, 0.99)` (default) or `nothing` to disable
-- `range`: `(-1, 1)` (default) for min-max scaling
-
-## Documentation
-
-- [**User Guide**](https://kchu25.github.io/RealLabelNormalization.jl/dev/guide/) - Detailed workflows and best practices
-- [**API Reference**](https://kchu25.github.io/RealLabelNormalization.jl/dev/api/) - Complete function documentation
-- [**Examples**](https://kchu25.github.io/RealLabelNormalization.jl/dev/examples/) - Real-world use cases
-
-## Citation
-
-```bibtex
-@software{RealLabelNormalization_jl,
-  author = {Shane Kuei-Hsien Chu},
-  title = {RealLabelNormalization.jl: Robust normalization for real-valued regression labels},
-  url = {https://github.com/kchu25/RealLabelNormalization.jl},
-  version = {1.0.0},
-  year = {2025}
-}
-```
+- `method`: `:minmax`, `:zscore`, `:zscore_minmax`, or `:log`
+- `mode`: `:rowwise` (default), `:columnwise`, or `:global` (matrices only)
+- `range`: `(-1, 1)` (default) for min-max and zscore_minmax
+- `clip_quantiles`: `(0.01, 0.99)` (default) or `nothing`
 
 ## License
 
