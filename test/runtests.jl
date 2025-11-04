@@ -916,73 +916,8 @@ using Statistics
         end
     end
 
-    @testset "Methods.jl Denormalization Functions Tests" begin
-        @testset "_denormalize_minmax Tests" begin
-            # Test vector case
-            normalized = [-1.0, -0.5, 0.0, 0.5, 1.0]
-            stats = (mode = :vector, min_val = 1.0, max_val = 5.0, range = (-1.0, 1.0))
-            denormalized = RealLabelNormalization._denormalize_minmax(normalized, stats)
-            @test denormalized ≈ [1.0, 2.0, 3.0, 4.0, 5.0] atol=1e-10
-            
-            # Test global case
-            normalized_global = [-1.0 0.0; 0.0 1.0]
-            stats_global = (mode = :global, min_val = 1.0, max_val = 4.0, range = (-1.0, 1.0))
-            denormalized_global = RealLabelNormalization._denormalize_minmax(normalized_global, stats_global)
-            @test denormalized_global ≈ [1.0 2.5; 2.5 4.0] atol=1e-10
-            
-            # Test columnwise case
-            normalized_col = [-1.0 0.0; 0.0 1.0]
-            stats_col = (mode = :columnwise, min_vals = [1.0, 2.0], max_vals = [3.0, 4.0], range = (-1.0, 1.0))
-            denormalized_col = RealLabelNormalization._denormalize_minmax(normalized_col, stats_col)
-            @test denormalized_col[:, 1] ≈ [1.0, 2.0] atol=1e-10
-            @test denormalized_col[:, 2] ≈ [3.0, 4.0] atol=1e-10
-            
-            # Test rowwise case
-            normalized_row = [-1.0 0.0; 0.0 1.0]
-            stats_row = (mode = :rowwise, min_vals = [1.0, 3.0], max_vals = [3.0, 5.0], range = (-1.0, 1.0))
-            denormalized_row = RealLabelNormalization._denormalize_minmax(normalized_row, stats_row)
-            @test denormalized_row[1, :] ≈ [1.0, 2.0] atol=1e-10
-            @test denormalized_row[2, :] ≈ [4.0, 5.0] atol=1e-10
-            
-            # Test constant data (min_val == max_val)
-            stats_constant = (mode = :vector, min_val = 5.0, max_val = 5.0, range = (-1.0, 1.0))
-            denormalized_constant = RealLabelNormalization._denormalize_minmax(normalized, stats_constant)
-            @test all(denormalized_constant .== 5.0)
-        end
-
-        @testset "_denormalize_zscore Tests" begin
-            # Test vector case
-            normalized = [-1.0, -0.5, 0.0, 0.5, 1.0]
-            stats = (mode = :vector, mean = 3.0, std = 2.0)
-            denormalized = RealLabelNormalization._denormalize_zscore(normalized, stats)
-            @test denormalized ≈ [1.0, 2.0, 3.0, 4.0, 5.0] atol=1e-10
-            
-            # Test global case
-            normalized_global = [-1.0 0.0; 0.0 1.0]
-            stats_global = (mode = :global, mean = 3.5, std = 2.0)
-            denormalized_global = RealLabelNormalization._denormalize_zscore(normalized_global, stats_global)
-            @test denormalized_global ≈ [1.5 3.5; 3.5 5.5] atol=1e-10
-            
-            # Test columnwise case
-            normalized_col = [-1.0 0.0; 0.0 1.0]
-            stats_col = (mode = :columnwise, means = [2.0, 3.0], stds = [1.0, 2.0])
-            denormalized_col = RealLabelNormalization._denormalize_zscore(normalized_col, stats_col)
-            @test denormalized_col[:, 1] ≈ [1.0, 2.0] atol=1e-10
-            @test denormalized_col[:, 2] ≈ [3.0, 5.0] atol=1e-10
-            
-            # Test rowwise case
-            normalized_row = [-1.0 0.0; 0.0 1.0]
-            stats_row = (mode = :rowwise, means = [2.0, 4.0], stds = [1.0, 2.0])
-            denormalized_row = RealLabelNormalization._denormalize_zscore(normalized_row, stats_row)
-            @test denormalized_row[1, :] ≈ [1.0, 2.0] atol=1e-10
-            @test denormalized_row[2, :] ≈ [4.0, 6.0] atol=1e-10
-            
-            # Test zero standard deviation
-            stats_zero_std = (mode = :vector, mean = 3.0, std = 0.0)
-            denormalized_zero = RealLabelNormalization._denormalize_zscore(normalized, stats_zero_std)
-            @test all(denormalized_zero .== 3.0)
-        end
-    end
+    # Note: Denormalization functions are now handled by functors
+    # See "Functor-based Denormalization" tests for comprehensive coverage
 
     @testset "Core.jl Input Validation and Error Handling Tests" begin
         @testset "normalize_labels Input Validation" begin
@@ -1046,12 +981,12 @@ using Statistics
         end
 
         @testset "denormalize_labels Error Handling" begin
-            # Test invalid stats object - wrong method
-            invalid_stats = (method=:invalid, mode=:global, range=(-1,1), clip_quantiles=nothing)
-            @test_throws ArgumentError RealLabelNormalization.denormalize_labels([1.0,2.0,3.0], invalid_stats)
+            # Test invalid stats object - missing functor (more likely than invalid method now)
+            invalid_stats = (method=:minmax, mode=:global, range=(-1,1), clip_quantiles=nothing)
+            @test_throws ErrorException RealLabelNormalization.denormalize_labels([1.0,2.0,3.0], invalid_stats)
             
             # Test missing required fields in stats
-            incomplete_stats = (method=:minmax, mode=:global)  # Missing range, clip_quantiles
+            incomplete_stats = (method=:minmax, mode=:global)  # Missing range, clip_quantiles, scale_back_functor
             @test_throws ErrorException RealLabelNormalization.denormalize_labels([1.0,2.0,3.0], incomplete_stats)
         end
 

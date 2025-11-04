@@ -217,15 +217,49 @@ end
 Convert normalized labels back to original scale using stored statistics.
 
 Useful for interpreting model predictions in original units.
+
+Uses the GPU-compatible functor stored in stats.scale_back_functor.
 """
 function denormalize_labels(normalized_labels::AbstractArray, stats::NamedTuple)
-    if stats.method == :minmax
-        return _denormalize_minmax(normalized_labels, stats)
-    elseif stats.method == :zscore
-        return _denormalize_zscore(normalized_labels, stats)
-    elseif stats.method == :log
-        return _denormalize_log(normalized_labels, stats)
+    # Validate stats object
+    if !haskey(stats, :scale_back_functor)
+        throw(ErrorException("stats object missing required field: scale_back_functor"))
+    end
+    if !haskey(stats, :mode)
+        throw(ErrorException("stats object missing required field: mode"))
+    end
+    
+    functor = stats.scale_back_functor
+    
+    # Handle different modes
+    if stats.mode == :vector || stats.mode == :global
+        # Apply functor element-wise
+        result = similar(normalized_labels)
+        for i in eachindex(normalized_labels)
+            result[i] = isnan(normalized_labels[i]) ? NaN : functor(normalized_labels[i])
+        end
+        return result
+    elseif stats.mode == :columnwise
+        # Apply column-specific functors
+        result = similar(normalized_labels)
+        for col in axes(normalized_labels, 2)
+            for row in axes(normalized_labels, 1)
+                val = normalized_labels[row, col]
+                result[row, col] = isnan(val) ? NaN : functor(val, col)
+            end
+        end
+        return result
+    elseif stats.mode == :rowwise
+        # Apply row-specific functors
+        result = similar(normalized_labels)
+        for row in axes(normalized_labels, 1)
+            for col in axes(normalized_labels, 2)
+                val = normalized_labels[row, col]
+                result[row, col] = isnan(val) ? NaN : functor(val, row)
+            end
+        end
+        return result
     else
-        throw(ArgumentError("Unknown method in stats: $(stats.method)"))
+        throw(ArgumentError("Unknown mode in stats: $(stats.mode)"))
     end
 end
