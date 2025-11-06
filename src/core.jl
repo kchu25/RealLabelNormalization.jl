@@ -1,7 +1,7 @@
 # Core normalization API
 
 """
-    normalize_labels(labels; method=:minmax, range=(-1, 1), mode=:global, clip_quantiles=(0.01, 0.99), log_shift=100.0)
+    normalize_labels(labels; method=:minmax, range=(-1, 1), mode=:global, clip_quantiles=(0.01, 0.99), log_shift=5.0)
 
 Normalize labels with various normalization methods and modes. Handles NaN values by ignoring them 
 in statistical computations and preserving them in the output.
@@ -27,7 +27,7 @@ in statistical computations and preserving them in the output.
   - `(0.01, 0.99)`: Clip to 1st-99th percentiles (default)
   - `(0.05, 0.95)`: Clip to 5th-95th percentiles (more aggressive)
   - `nothing`: No clipping
-- `log_shift::Real`: Shift parameter for log normalization (default: 100.0)
+- `log_shift::Real`: Shift parameter for log normalization (default: 5.0)
   - For `:log` method, the offset is computed as: `offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0`
   - Larger values make log normalization less sensitive to small values near zero
   - Only used when `method=:log`, ignored otherwise
@@ -81,7 +81,7 @@ function normalize_labels(labels::AbstractArray;
                          range::Tuple{Real,Real}=(-1, 1),
                          mode::Symbol=:global,
                          clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
-                         log_shift::Real=100.0,
+                         log_shift::Real=5.0,
                          warn_on_nan::Bool=true)
     # Input validation
     if method ∉ [:minmax, :zscore, :zscore_minmax, :log, :log_minmax]
@@ -124,7 +124,7 @@ end
 
 """
     compute_normalization_stats(labels; method=:minmax, mode=:global, 
-    range=(-1, 1), clip_quantiles=(0.01, 0.99), log_shift=100.0)
+    range=(-1, 1), clip_quantiles=(0.01, 0.99), log_shift=5.0)
 
 Compute normalization statistics from training data for later application to validation/test sets.
 
@@ -147,7 +147,7 @@ Compute normalization statistics from training data for later application to val
   - `(0.01, 0.99)`: Clip to 1st-99th percentiles (default)
   - `(0.05, 0.95)`: Clip to 5th-95th percentiles (more aggressive)
   - `nothing`: No clipping
-- `log_shift::Real`: Shift parameter for log normalization (default: 100.0)
+- `log_shift::Real`: Shift parameter for log normalization (default: 5.0)
   - For `:log` method, the offset is computed as: `offset = min_val <= 0 ? abs(min_val) + log_shift : 0.0`
   - Larger values make log normalization less sensitive to small values near zero
   - Only used when `method=:log`, ignored otherwise
@@ -174,7 +174,7 @@ function compute_normalization_stats(labels::AbstractArray;
                                    range::Tuple{Real,Real}=(-1, 1),
                                    mode::Symbol=:global,
                                    clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
-                                   log_shift::Real=100.0,
+                                   log_shift::Real=5.0,
                                    warn_on_nan::Bool=true)
     # Apply clipping if requested
     clipped_labels = clip_quantiles === nothing ? labels : _clip_outliers(labels, clip_quantiles, mode)
