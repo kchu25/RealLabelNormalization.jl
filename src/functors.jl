@@ -159,6 +159,24 @@ function (f::LogMinMaxScaleBack)(x)
 end
 
 """
+    IdentityScaleBack{T<:AbstractFloat}
+
+Functor for identity (no-op) normalization. Returns the input unchanged.
+Compatible with CUDA kernels - all fields are scalars (bitstype).
+
+# Example
+```julia
+functor = IdentityScaleBack{Float32}()
+original = functor(3.5f0)  # Returns 3.5f0 (unchanged)
+```
+"""
+struct IdentityScaleBack{T<:AbstractFloat} end
+
+function (f::IdentityScaleBack)(x)
+    return x
+end
+
+"""
     ColumnwiseScaleBack{T<:AbstractFloat, F, N}
 
 Functor for denormalizing columnwise-normalized values.

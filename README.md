@@ -56,6 +56,7 @@ predictions_original = denormalize_labels(model(X_test), stats)
 | `:zscore_minmax` | Z-score then min-max | Outlier handling + bounded range |
 | `:log` | Log transform | Skewed distributions |
 | `:log_minmax` | Log then min-max | Skewed data + bounded range |
+| `:identity` | No transformation (passthrough) | Conditional normalization, debugging |
 
 ## Modes (Matrices Only)
 
@@ -125,9 +126,31 @@ stats = compute_normalization_stats(income_train; method=:log)
 train_log = apply_normalization(income_train, stats)
 test_log = apply_normalization(income_test, stats)
 
-# Handles negative values automatically
+# Handles negative values automatically with configurable log_shift
 data_with_neg = [-10.0, -5.0, 0.0, 5.0, 100.0]
-stats = compute_normalization_stats(data_with_neg; method=:log)
+stats = compute_normalization_stats(data_with_neg; method=:log, log_shift=5.0)
+
+# Larger log_shift values make log normalization less sensitive to small values
+stats_large_shift = compute_normalization_stats(data_with_neg; method=:log, log_shift=100.0)
+```
+
+### Identity (No-Op) Normalization
+
+```julia
+# Useful for conditional normalization or as a placeholder
+data = [1.0, 2.0, 3.0, 4.0, 5.0]
+
+# Data passes through unchanged, but maintains consistent API
+stats = compute_normalization_stats(data; method=:identity)
+normalized = apply_normalization(data, stats)  # Returns copy of data
+denormalized = denormalize_labels(normalized, stats)  # Also unchanged
+
+# Example: conditional normalization based on data type
+function normalize_data(data, data_type)
+    method = data_type == :counts ? :log : data_type == :continuous ? :zscore : :identity
+    stats = compute_normalization_stats(data; method=method)
+    return apply_normalization(data, stats), stats
+end
 ```
 
 ### Integration with Flux.jl
@@ -160,10 +183,11 @@ predictions_original = denormalize_labels(predictions_norm, stats)
 - `denormalize_labels(normalized, stats)` - Convert back to original scale
 
 **Parameters:**
-- `method`: `:minmax`, `:zscore`, `:zscore_minmax`, or `:log`
+- `method`: `:minmax`, `:zscore`, `:zscore_minmax`, `:log`, `:log_minmax`, or `:identity`
 - `mode`: `:rowwise` (default), `:columnwise`, or `:global` (matrices only)
 - `range`: `(-1, 1)` (default) for min-max and zscore_minmax
 - `clip_quantiles`: `(0.01, 0.99)` (default) or `nothing`
+- `log_shift`: `5.0` (default) for log-based methods
 
 ## License
 

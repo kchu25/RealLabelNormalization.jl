@@ -2265,5 +2265,176 @@ using Statistics
             @test all(f -> f isa RealLabelNormalization.MinMaxScaleBack{Float32}, stats_row_f32[:scale_back_functor].functors)
         end
     end
+
+    @testset "Identity Normalization" begin
+        @testset "Vector - Identity passthrough" begin
+            labels = [1.0, 5.0, 3.0, 8.0, 2.0]
+            
+            # normalize_labels with :identity should return data unchanged
+            normalized = normalize_labels(labels; method=:identity, clip_quantiles=nothing)
+            @test normalized == labels
+            @test normalized !== labels  # should be a copy, not the same object
+            
+            # compute_normalization_stats + apply_normalization round-trip
+            stats = compute_normalization_stats(labels; method=:identity, clip_quantiles=nothing)
+            @test stats.method == :identity
+            @test stats.mode == :vector
+            @test haskey(stats, :scale_back_functor)
+            @test stats.scale_back_functor isa RealLabelNormalization.IdentityScaleBack{Float64}
+            
+            applied = apply_normalization(labels, stats)
+            @test applied == labels
+            
+            # Denormalize should also be identity
+            denorm = denormalize_labels(applied, stats)
+            @test isapprox(denorm, labels, atol=1e-10)
+        end
+        
+        @testset "Vector - Identity with NaN" begin
+            labels_nan = [1.0, NaN, 3.0, NaN, 5.0]
+            stats = compute_normalization_stats(labels_nan; method=:identity, clip_quantiles=nothing)
+            applied = apply_normalization(labels_nan, stats)
+            
+            # NaN positions preserved
+            @test isnan(applied[2])
+            @test isnan(applied[4])
+            # Valid values unchanged
+            @test applied[1] == 1.0
+            @test applied[3] == 3.0
+            @test applied[5] == 5.0
+            
+            # Denormalize preserves NaN
+            denorm = denormalize_labels(applied, stats)
+            @test isnan(denorm[2])
+            @test isnan(denorm[4])
+            @test denorm[1] ≈ 1.0
+        end
+        
+        @testset "Vector - Identity with clipping" begin
+            # Clipping should still apply, but no normalization after
+            labels = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 100.0]
+            stats = compute_normalization_stats(labels; method=:identity, clip_quantiles=(0.1, 0.9))
+            applied = apply_normalization(labels, stats)
+            
+            # The outlier (100.0) should be clipped
+            @test applied[end] < 100.0
+            # Middle values should be unchanged
+            @test applied[3] ≈ 3.0
+            @test applied[5] ≈ 5.0
+        end
+        
+        @testset "Matrix - Global Identity" begin
+            mat = [1.0 10.0; 3.0 20.0; 5.0 30.0]
+            stats = compute_normalization_stats(mat; method=:identity, mode=:global, clip_quantiles=nothing)
+            @test stats.method == :identity
+            @test stats.mode == :global
+            
+            applied = apply_normalization(mat, stats)
+            @test applied == mat
+            
+            denorm = denormalize_labels(applied, stats)
+            @test isapprox(denorm, mat, atol=1e-10)
+        end
+        
+        @testset "Matrix - Columnwise Identity" begin
+            mat = [1.0 10.0; 3.0 20.0; 5.0 30.0]
+            stats = compute_normalization_stats(mat; method=:identity, mode=:columnwise, clip_quantiles=nothing)
+            @test stats.method == :identity
+            @test stats.mode == :columnwise
+            @test stats.scale_back_functor isa RealLabelNormalization.ColumnwiseScaleBack
+            
+            applied = apply_normalization(mat, stats)
+            @test applied == mat
+            
+            denorm = denormalize_labels(applied, stats)
+            @test isapprox(denorm, mat, atol=1e-10)
+        end
+        
+        @testset "Matrix - Rowwise Identity" begin
+            mat = [1.0 10.0; 3.0 20.0; 5.0 30.0]
+            stats = compute_normalization_stats(mat; method=:identity, mode=:rowwise, clip_quantiles=nothing)
+            @test stats.method == :identity
+            @test stats.mode == :rowwise
+            @test stats.scale_back_functor isa RealLabelNormalization.RowwiseScaleBack
+            
+            applied = apply_normalization(mat, stats)
+            @test applied == mat
+            
+            denorm = denormalize_labels(applied, stats)
+            @test isapprox(denorm, mat, atol=1e-10)
+        end
+        
+        @testset "Identity - Float32 support" begin
+            labels_f32 = Float32[1.0, 2.0, 3.0, 4.0, 5.0]
+            stats = compute_normalization_stats(labels_f32; method=:identity, clip_quantiles=nothing)
+            @test stats.scale_back_functor isa RealLabelNormalization.IdentityScaleBack{Float32}
+            
+            applied = apply_normalization(labels_f32, stats)
+            @test eltype(applied) == Float32
+            @test applied == labels_f32
+            
+            denorm = denormalize_labels(applied, stats)
+            @test eltype(denorm) == Float32
+            @test isapprox(denorm, labels_f32, atol=1e-6)
+            
+            # Matrix Float32 columnwise
+            mat_f32 = Float32[1.0 10.0; 2.0 20.0]
+            stats_col = compute_normalization_stats(mat_f32; method=:identity, mode=:columnwise, clip_quantiles=nothing)
+            @test stats_col.scale_back_functor isa RealLabelNormalization.ColumnwiseScaleBack
+            @test all(f -> f isa RealLabelNormalization.IdentityScaleBack{Float32}, stats_col.scale_back_functor.functors)
+        end
+        
+        @testset "Identity - Edge cases" begin
+            # Constant values
+            constant = [5.0, 5.0, 5.0]
+            stats = compute_normalization_stats(constant; method=:identity, clip_quantiles=nothing)
+            applied = apply_normalization(constant, stats)
+            @test applied == constant
+            
+            # Single value
+            single = [42.0]
+            stats_single = compute_normalization_stats(single; method=:identity, clip_quantiles=nothing)
+            applied_single = apply_normalization(single, stats_single)
+            @test applied_single == single
+            
+            # Negative values
+            neg = [-10.0, -5.0, 0.0, 5.0, 10.0]
+            stats_neg = compute_normalization_stats(neg; method=:identity, clip_quantiles=nothing)
+            applied_neg = apply_normalization(neg, stats_neg)
+            @test applied_neg == neg
+            
+            # All NaN
+            all_nan = [NaN, NaN, NaN]
+            stats_nan = compute_normalization_stats(all_nan; method=:identity, clip_quantiles=nothing, warn_on_nan=false)
+            applied_nan = apply_normalization(all_nan, stats_nan)
+            @test all(isnan, applied_nan)
+        end
+        
+        @testset "Identity - normalize_labels direct call modes" begin
+            mat = [1.0 2.0 3.0; 4.0 5.0 6.0; 7.0 8.0 9.0]
+            
+            # Global
+            norm_global = normalize_labels(mat; method=:identity, mode=:global, clip_quantiles=nothing)
+            @test norm_global == mat
+            
+            # Columnwise
+            norm_col = normalize_labels(mat; method=:identity, mode=:columnwise, clip_quantiles=nothing)
+            @test norm_col == mat
+            
+            # Rowwise
+            norm_row = normalize_labels(mat; method=:identity, mode=:rowwise, clip_quantiles=nothing)
+            @test norm_row == mat
+        end
+        
+        @testset "Identity functor" begin
+            f64 = RealLabelNormalization.IdentityScaleBack{Float64}()
+            @test f64(3.14) == 3.14
+            @test f64(-100.0) == -100.0
+            @test f64(0.0) == 0.0
+            
+            f32 = RealLabelNormalization.IdentityScaleBack{Float32}()
+            @test f32(3.14f0) == 3.14f0
+        end
+    end
 end
 

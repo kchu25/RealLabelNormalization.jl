@@ -136,7 +136,9 @@ end
 
 function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; 
                         warn_on_nan::Bool=true)
-    if method == :minmax
+    if method == :identity
+        return copy(labels)
+    elseif method == :minmax
         normalized_01, min_val, max_val = _minmax_normalize_to_01(labels; warn_on_nan=warn_on_nan)
         if min_val == max_val
             @warn "All labels have the same value ($min_val), returning zeros"
@@ -186,7 +188,9 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
 end
 
 function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
-    if method == :minmax
+    if method == :identity
+        return copy(labels)
+    elseif method == :minmax
         normalized_01, min_val, max_val = _minmax_normalize_to_01(labels; warn_on_nan=warn_on_nan)
         if min_val == max_val
             @warn "All labels have the same value ($min_val), returning zeros"
@@ -236,6 +240,9 @@ end
 function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
     normalized = similar(labels)
     
+    if method == :identity
+        return copy(labels)
+    end
     for col in axes(labels, 2) # for col in
         column_data = @view labels[:, col]
         if method == :minmax
@@ -286,6 +293,9 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
 end
 
 function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
+    if method == :identity
+        return copy(labels)
+    end
     normalized = similar(labels)
     for row in axes(labels, 1)
         row_data = @view labels[row, :]
@@ -512,6 +522,10 @@ function _apply_zscore_minmax_normalization(labels::AbstractArray, stats::NamedT
         end
         return normalized
     end
+end
+
+function _apply_identity_normalization(labels::AbstractArray, stats::NamedTuple)
+    return copy(labels)
 end
 
 function _apply_log_minmax_normalization(labels::AbstractArray, stats::NamedTuple)

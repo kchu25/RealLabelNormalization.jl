@@ -40,7 +40,16 @@ function _compute_stats_vector(
         end
     end
     
-    if method == :minmax
+    if method == :identity
+        functor = IdentityScaleBack{T}()
+        return (
+            method=:identity,
+            mode=:vector,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
+    elseif method == :minmax
         min_val, max_val = _safe_extrema(labels; warn_on_nan=warn_on_nan)
         min_val, max_val = convert(T, min_val), convert(T, max_val)
         functor = MinMaxScaleBack{T}(min_val, max_val, T(range[1]), T(range[2]))
@@ -213,7 +222,16 @@ function _compute_stats_global(
         end
     end
     
-    if method == :minmax
+    if method == :identity
+        functor = IdentityScaleBack{T}()
+        return (
+            method=:identity,
+            mode=:global,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
+    elseif method == :minmax
         min_val, max_val = _safe_extrema(labels; warn_on_nan=warn_on_nan)
         min_val, max_val = convert(T, min_val), convert(T, max_val)
         functor = MinMaxScaleBack{T}(min_val, max_val, T(range[1]), T(range[2]))
@@ -392,7 +410,17 @@ function _compute_stats_columnwise(
         clip_bounds = column_bounds
     end
     
-    if method == :minmax
+    if method == :identity
+        functors = IdentityScaleBack{T}[IdentityScaleBack{T}() for _ in 1:n_cols]
+        col_functor = ColumnwiseScaleBack{T, IdentityScaleBack{T}}(functors)
+        return (
+            method=:identity,
+            mode=:columnwise,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
+        )
+    elseif method == :minmax
         min_vals = T[]
         max_vals = T[]
         functors = MinMaxScaleBack{T}[]
@@ -583,7 +611,17 @@ function _compute_stats_rowwise(
         end
         clip_bounds = row_bounds
     end
-    if method == :minmax
+    if method == :identity
+        functors = IdentityScaleBack{T}[IdentityScaleBack{T}() for _ in 1:n_rows]
+        row_functor = RowwiseScaleBack{T, IdentityScaleBack{T}}(functors)
+        return (
+            method=:identity,
+            mode=:rowwise,
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
+        )
+    elseif method == :minmax
         min_vals = T[]
         max_vals = T[]
         functors = MinMaxScaleBack{T}[]

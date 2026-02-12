@@ -14,6 +14,7 @@ in statistical computations and preserving them in the output.
   - `:zscore_minmax`: Z-score followed by min-max scaling (great for outliers + bounded range)
   - `:log`: Log normalization (log-transform with automatic offset for non-positive values)
   - `:log_minmax`: Log transformation followed by min-max scaling (great for skewed data + bounded range)
+  - `:identity`: No normalization (passthrough, data returned unchanged)
 - `range::Tuple{Real,Real}`: Target range for min-max and zscore_minmax normalization (default: (-1, 1))
   - `(-1, 1)`: Scaled to `[-1,1]` (default)
   - `(0, 1)`: Standard scaling to [0,1]
@@ -63,6 +64,9 @@ normalized = normalize_labels(labels; method=:log)
 # Log normalization with custom shift (less sensitive to small values)
 normalized = normalize_labels(labels; method=:log, log_shift=1000.0)
 
+# Identity (no-op, passthrough)
+normalized = normalize_labels(labels; method=:identity)
+
 # Matrix labels (multi-target)
 labels_matrix = [1.0 10.0; 5.0 20.0; 3.0 15.0; 8.0 25.0; 1000.0 5.0]  # Outlier in col 1
 
@@ -84,8 +88,8 @@ function normalize_labels(labels::AbstractArray;
                          log_shift::Real=5.0,
                          warn_on_nan::Bool=true)
     # Input validation
-    if method ∉ [:minmax, :zscore, :zscore_minmax, :log, :log_minmax]
-        throw(ArgumentError("method must be :minmax, :zscore, :zscore_minmax, :log, or :log_minmax, got :$method"))
+    if method ∉ [:minmax, :zscore, :zscore_minmax, :log, :log_minmax, :identity]
+        throw(ArgumentError("method must be :minmax, :zscore, :zscore_minmax, :log, :log_minmax, or :identity, got :$method"))
     end
     if mode ∉ [:global, :columnwise, :rowwise]
         throw(ArgumentError("mode must be :global, :columnwise, or :rowwise, got :$mode"))
@@ -134,6 +138,7 @@ Compute normalization statistics from training data for later application to val
   - `:minmax`: Min-max normalization (default)
   - `:zscore`: Z-score normalization (mean=0, std=1)
   - `:log`: Log normalization (log-transform with automatic offset for non-positive values)
+  - `:identity`: No normalization (passthrough, data returned unchanged)
 - `range::Tuple{Real,Real}`: Target range for min-max normalization (default (-1, 1))
     - `(-1, 1)`: Scaled min-max to `[-1,1]` (default)
     - `(0, 1)`: Standard min-max to [0,1]
@@ -205,7 +210,9 @@ function apply_normalization(labels::AbstractArray, stats::NamedTuple)
     # Apply same clipping as was used during training
     clipped_labels = stats.clip_quantiles === nothing ? labels : _apply_training_clip_bounds(labels, stats)
     
-    if stats.method == :minmax
+    if stats.method == :identity
+        return _apply_identity_normalization(clipped_labels, stats)
+    elseif stats.method == :minmax
         return _apply_minmax_normalization(clipped_labels, stats)
     elseif stats.method == :zscore
         return _apply_zscore_normalization(clipped_labels, stats)
