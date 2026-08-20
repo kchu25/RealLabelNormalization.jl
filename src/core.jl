@@ -86,10 +86,14 @@ function normalize_labels(labels::AbstractArray;
                          mode::Symbol=:global,
                          clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
                          log_shift::Real=5.0,
+                         wt_reference::Union{Nothing,Real,AbstractVector{<:Real}}=nothing,
                          warn_on_nan::Bool=true)
     # Input validation
-    if method ∉ [:minmax, :zscore, :zscore_minmax, :log, :log_minmax, :identity]
-        throw(ArgumentError("method must be :minmax, :zscore, :zscore_minmax, :log, :log_minmax, or :identity, got :$method"))
+    if method ∉ [:minmax, :zscore, :zscore_wt, :zscore_minmax, :log, :log_minmax, :identity]
+        throw(ArgumentError("method must be :minmax, :zscore, :zscore_wt, :zscore_minmax, :log, :log_minmax, or :identity, got :$method"))
+    end
+    if method == :zscore_wt && wt_reference === nothing
+        throw(ArgumentError(":zscore_wt requires a wt_reference (the value the labels should be centered on, e.g. the wild-type measurement)"))
     end
     if mode ∉ [:global, :columnwise, :rowwise]
         throw(ArgumentError("mode must be :global, :columnwise, or :rowwise, got :$mode"))
@@ -112,14 +116,14 @@ function normalize_labels(labels::AbstractArray;
     clipped_labels = clip_quantiles === nothing ? labels : _clip_outliers(labels, clip_quantiles, mode)
     # Handle different input types
     if ndims(clipped_labels) == 1
-        return _normalize_vector(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan)
+        return _normalize_vector(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
     elseif ndims(clipped_labels) == 2
         if mode == :global
-            return _normalize_global(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan)
+            return _normalize_global(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
         elseif mode == :columnwise
-            return _normalize_columnwise(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan)
+            return _normalize_columnwise(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
         else # :rowwise
-            return _normalize_rowwise(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan)
+            return _normalize_rowwise(clipped_labels, method, range, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
         end
     else
         throw(ArgumentError("labels must be 1D or 2D array, got $(ndims(clipped_labels))D"))
@@ -180,18 +184,27 @@ function compute_normalization_stats(labels::AbstractArray;
                                    mode::Symbol=:global,
                                    clip_quantiles::Union{Nothing,Tuple{Real,Real}}=(0.01, 0.99),
                                    log_shift::Real=5.0,
+                                   wt_reference::Union{Nothing,Real,AbstractVector{<:Real}}=nothing,
                                    warn_on_nan::Bool=true)
+    # NOTE: unlike normalize_labels, this function historically performs no
+    # method validation (asserted by test/runtests.jl). An unknown symbol falls
+    # through to the :log branch. :zscore_wt is therefore an explicit branch in
+    # all four _compute_stats_* functions. This one guard is the exception,
+    # because a missing reference cannot be silently defaulted.
+    if method == :zscore_wt && wt_reference === nothing
+        throw(ArgumentError(":zscore_wt requires a wt_reference (the value the labels should be centered on, e.g. the wild-type measurement)"))
+    end
     # Apply clipping if requested
     clipped_labels = clip_quantiles === nothing ? labels : _clip_outliers(labels, clip_quantiles, mode)
     if ndims(clipped_labels) == 1
-        return _compute_stats_vector(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan)
+        return _compute_stats_vector(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
     elseif ndims(clipped_labels) == 2
         if mode == :global
-            return _compute_stats_global(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan)
+            return _compute_stats_global(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
         elseif mode == :columnwise
-            return _compute_stats_columnwise(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan)
+            return _compute_stats_columnwise(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
         else # :rowwise
-            return _compute_stats_rowwise(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan)
+            return _compute_stats_rowwise(clipped_labels, method, range, clip_quantiles, log_shift; warn_on_nan=warn_on_nan, wt_reference=wt_reference)
         end
     else
         throw(ArgumentError("labels must be 1D or 2D array, got $(ndims(clipped_labels))D"))
@@ -216,6 +229,8 @@ function apply_normalization(labels::AbstractArray, stats::NamedTuple)
         return _apply_minmax_normalization(clipped_labels, stats)
     elseif stats.method == :zscore
         return _apply_zscore_normalization(clipped_labels, stats)
+    elseif stats.method == :zscore_wt
+        return _apply_zscore_wt_normalization(clipped_labels, stats)
     elseif stats.method == :zscore_minmax
         return _apply_zscore_minmax_normalization(clipped_labels, stats)
     elseif stats.method == :log

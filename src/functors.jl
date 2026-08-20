@@ -58,6 +58,35 @@ function (f::ZScoreScaleBack)(x)
 end
 
 """
+    ZScoreWTScaleBack{T<:AbstractFloat}
+
+Functor for denormalizing values that were centered on a SUPPLIED REFERENCE
+(e.g. a wild-type measurement) rather than on the sample mean, then scaled by
+the standard deviation. Compatible with CUDA kernels - all fields are scalars.
+
+# Fields
+- `reference::T`: The reference value the data was centered on
+- `std::T`: Original standard deviation
+
+The field is named `std` (not `sd`) deliberately: downstream consumers read
+`scale_back_functor.std` and must keep working for this method.
+
+# Example
+```julia
+functor = ZScoreWTScaleBack{Float32}(2.5f0, 1.5f0)
+original = functor(0.0f0)  # Returns 2.5f0 (the reference, not the mean)
+```
+"""
+struct ZScoreWTScaleBack{T<:AbstractFloat}
+    reference::T
+    std::T
+end
+
+function (f::ZScoreWTScaleBack)(x)
+    return x * f.std + f.reference
+end
+
+"""
     LogScaleBack{T<:AbstractFloat}
 
 Functor for denormalizing log-transformed values back to original scale.

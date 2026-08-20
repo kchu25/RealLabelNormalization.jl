@@ -2438,3 +2438,115 @@ using Statistics
     end
 end
 
+@testset "WtCenter (:zscore_wt) Normalization Tests" begin
+
+    @testset "Ground Truth - reference equals the mean reproduces :zscore" begin
+        labels = [1.0, 2.0, 3.0, 4.0, 5.0]   # mean = 3
+        wt = compute_normalization_stats(labels; method=:zscore_wt, wt_reference=3.0, clip_quantiles=nothing)
+        zs = compute_normalization_stats(labels; method=:zscore,                      clip_quantiles=nothing)
+        @test apply_normalization(labels, wt) ≈ apply_normalization(labels, zs)
+        @test wt.method == :zscore_wt
+        @test wt.reference == 3.0
+        @test wt.std ≈ zs.std
+    end
+
+    @testset "Ground Truth - reference away from the mean" begin
+        labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+        ref = 5.0
+        sd = Statistics.std(labels)          # corrected, matches _safe_mean_std
+        stats = compute_normalization_stats(labels; method=:zscore_wt, wt_reference=ref, clip_quantiles=nothing)
+        normalized = apply_normalization(labels, stats)
+        @test normalized ≈ (labels .- ref) ./ sd
+        # the reference itself must land exactly on zero: that is the whole point
+        @test normalized[5] ≈ 0.0 atol=1e-12
+        @test !isapprox(Statistics.mean(normalized), 0.0, atol=1e-8)   # NOT mean-centred
+    end
+
+    @testset "Round-trip" begin
+        labels = [2.5, -1.0, 7.25, 0.0, 3.5]
+        stats = compute_normalization_stats(labels; method=:zscore_wt, wt_reference=2.5, clip_quantiles=nothing)
+        @test denormalize_labels(apply_normalization(labels, stats), stats) ≈ labels
+    end
+
+    @testset "Missing reference is an error, not a silent :log fallthrough" begin
+        labels = [1.0, 2.0, 3.0]
+        # compute_normalization_stats deliberately does not validate `method`,
+        # so an unguarded :zscore_wt would fall into the :log branch and return
+        # stats labelled method=:log. The guard must catch it.
+        @test_throws ArgumentError compute_normalization_stats(labels; method=:zscore_wt)
+        @test_throws ArgumentError normalize_labels(labels; method=:zscore_wt)
+    end
+
+    @testset "One-shot API agrees with the stats API" begin
+        labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+        stats = compute_normalization_stats(labels; method=:zscore_wt, wt_reference=4.0, clip_quantiles=nothing)
+        @test normalize_labels(labels; method=:zscore_wt, wt_reference=4.0, clip_quantiles=nothing) ≈
+              apply_normalization(labels, stats)
+    end
+
+    @testset "Columnwise Mode" begin
+        labels = [1.0 10.0; 2.0 20.0; 3.0 30.0]
+        refs = [2.0, 20.0]
+        stats = compute_normalization_stats(labels; method=:zscore_wt, mode=:columnwise,
+                                            wt_reference=refs, clip_quantiles=nothing)
+        normalized = apply_normalization(labels, stats)
+        @test stats.mode == :columnwise
+        @test stats.references == refs
+        @test normalized[2, 1] ≈ 0.0 atol=1e-12
+        @test normalized[2, 2] ≈ 0.0 atol=1e-12
+        @test denormalize_labels(normalized, stats) ≈ labels
+    end
+
+    @testset "Rowwise Mode" begin
+        # :rowwise is what the production pipeline actually requests
+        labels = [1.0 2.0 3.0; 10.0 20.0 30.0]
+        refs = [2.0, 20.0]
+        stats = compute_normalization_stats(labels; method=:zscore_wt, mode=:rowwise,
+                                            wt_reference=refs, clip_quantiles=nothing)
+        normalized = apply_normalization(labels, stats)
+        @test stats.mode == :rowwise
+        @test stats.references == refs
+        @test normalized[1, 2] ≈ 0.0 atol=1e-12
+        @test normalized[2, 2] ≈ 0.0 atol=1e-12
+        @test denormalize_labels(normalized, stats) ≈ labels
+    end
+
+    @testset "Edge Cases" begin
+        # zero variance: keep the offset rather than collapsing to zeros, so the
+        # distance from the reference survives
+        constant = [4.0, 4.0, 4.0, 4.0]
+        stats = compute_normalization_stats(constant; method=:zscore_wt, wt_reference=1.0, clip_quantiles=nothing)
+        @test stats.std == 0.0
+        @test apply_normalization(constant, stats) ≈ fill(3.0, 4)
+        # reference outside the data range is allowed
+        labels = [1.0, 2.0, 3.0]
+        far = compute_normalization_stats(labels; method=:zscore_wt, wt_reference=100.0, clip_quantiles=nothing)
+        @test denormalize_labels(apply_normalization(labels, far), far) ≈ labels
+    end
+
+    @testset "Functor Tests" begin
+        labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+        stats = compute_normalization_stats(labels; method=:zscore_wt, wt_reference=2.0, clip_quantiles=nothing)
+        f = stats.scale_back_functor
+        @test f isa RealLabelNormalization.ZScoreWTScaleBack{Float64}
+        @test f.reference isa Float64
+        @test f.std isa Float64
+        @test f(0.0) ≈ 2.0                     # the model's zero maps to the reference
+        # `std` (not `sd`) is load-bearing: BanzhafInference reads
+        # scale_back_function.functor.std for its closed-form fast path
+        @test hasproperty(f, :std)
+        @test isbitstype(typeof(f))            # must stay CUDA-kernel safe
+        f32 = compute_normalization_stats(Float32.(labels); method=:zscore_wt,
+                                          wt_reference=2.0, clip_quantiles=nothing).scale_back_functor
+        @test f32 isa RealLabelNormalization.ZScoreWTScaleBack{Float32}
+    end
+
+    @testset "Comparison with Other Methods" begin
+        labels = [1.0, 2.0, 3.0, 4.0, 5.0]
+        wt = apply_normalization(labels, compute_normalization_stats(labels; method=:zscore_wt, wt_reference=1.0, clip_quantiles=nothing))
+        zs = apply_normalization(labels, compute_normalization_stats(labels; method=:zscore, clip_quantiles=nothing))
+        # differ by exactly the constant (mean - reference)/sd
+        @test all(isapprox.(wt .- zs, (3.0 - 1.0) / Statistics.std(labels), atol=1e-10))
+    end
+end
+

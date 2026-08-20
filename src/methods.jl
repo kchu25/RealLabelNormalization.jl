@@ -1,3 +1,5 @@
+_wtref(wt_reference, idx) = wt_reference isa AbstractVector ? wt_reference[idx] : wt_reference
+
 # Normalization method implementations
 
 """
@@ -135,7 +137,7 @@ function _log_minmax_normalize(data::AbstractArray, range::Tuple{Real,Real}, log
 end
 
 function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; 
-                        warn_on_nan::Bool=true)
+                        warn_on_nan::Bool=true, wt_reference=nothing)
     if method == :identity
         return copy(labels)
     elseif method == :minmax
@@ -157,6 +159,19 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
             return zeros(eltype(labels), size(labels))
         end
         return (labels .- mu) ./ sigma
+    elseif method == :zscore_wt
+        # Centre on the supplied reference instead of the sample mean.
+        _, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
+        ref = convert(eltype(labels), _wtref(wt_reference, 1))
+        if isnan(sigma)
+            @warn "Cannot compute z-score with NaN statistics, returning NaN array"
+            return fill(NaN, size(labels))
+        end
+        if sigma == 0
+            @warn "Standard deviation is zero, returning labels centred on the reference"
+            return labels .- ref
+        end
+        return (labels .- ref) ./ sigma
     elseif method == :zscore_minmax
         result, _, _, _, _ = _zscore_minmax_normalize(labels, range; warn_on_nan=warn_on_nan)
         return result
@@ -187,7 +202,7 @@ function _normalize_vector(labels::AbstractVector, method::Symbol, range::Tuple{
     end
 end
 
-function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
+function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true, wt_reference=nothing)
     if method == :identity
         return copy(labels)
     elseif method == :minmax
@@ -209,6 +224,19 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
             return zeros(eltype(labels), size(labels))
         end
         return (labels .- mu) ./ sigma
+    elseif method == :zscore_wt
+        # Centre on the supplied reference instead of the sample mean.
+        _, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
+        ref = convert(eltype(labels), _wtref(wt_reference, 1))
+        if isnan(sigma)
+            @warn "Cannot compute z-score with NaN statistics, returning NaN array"
+            return fill(NaN, size(labels))
+        end
+        if sigma == 0
+            @warn "Standard deviation is zero, returning labels centred on the reference"
+            return labels .- ref
+        end
+        return (labels .- ref) ./ sigma
     elseif method == :zscore_minmax
         result, _, _, _, _ = _zscore_minmax_normalize(labels, range; warn_on_nan=warn_on_nan)
         return result
@@ -237,7 +265,7 @@ function _normalize_global(labels::AbstractMatrix, method::Symbol, range::Tuple{
     end
 end
 
-function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
+function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true, wt_reference=nothing)
     normalized = similar(labels)
     
     if method == :identity
@@ -263,6 +291,18 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
                 normalized[:, col] .= 0
             else
                 normalized[:, col] = (column_data .- mu) ./ sigma
+            end
+        elseif method == :zscore_wt
+            _, sigma = _safe_mean_std(column_data; warn_on_nan=warn_on_nan)
+            ref = convert(eltype(labels), _wtref(wt_reference, col))
+            if isnan(sigma)
+                @warn "Column $col has all NaN values, setting to NaN"
+                normalized[:, col] .= NaN
+            elseif sigma == 0
+                @warn "Column $col has zero standard deviation, centring on the reference only"
+                normalized[:, col] = column_data .- ref
+            else
+                normalized[:, col] = (column_data .- ref) ./ sigma
             end
         elseif method == :zscore_minmax
             result, _, _, _, _ = _zscore_minmax_normalize(column_data, range; warn_on_nan=warn_on_nan)
@@ -292,7 +332,7 @@ function _normalize_columnwise(labels::AbstractMatrix, method::Symbol, range::Tu
     return normalized
 end
 
-function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true)
+function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple{Real,Real}, log_shift::Real; warn_on_nan::Bool=true, wt_reference=nothing)
     if method == :identity
         return copy(labels)
     end
@@ -317,6 +357,18 @@ function _normalize_rowwise(labels::AbstractMatrix, method::Symbol, range::Tuple
                 normalized[row, :] .= 0
             else
                 normalized[row, :] = (row_data .- mu) ./ sigma
+            end
+        elseif method == :zscore_wt
+            _, sigma = _safe_mean_std(row_data; warn_on_nan=warn_on_nan)
+            ref = convert(eltype(labels), _wtref(wt_reference, row))
+            if isnan(sigma)
+                @warn "Row $row has all NaN values, setting to NaN"
+                normalized[row, :] .= NaN
+            elseif sigma == 0
+                @warn "Row $row has zero standard deviation, centring on the reference only"
+                normalized[row, :] = row_data .- ref
+            else
+                normalized[row, :] = (row_data .- ref) ./ sigma
             end
         elseif method == :zscore_minmax
             result, _, _, _, _ = _zscore_minmax_normalize(row_data, range; warn_on_nan=warn_on_nan)
@@ -412,6 +464,38 @@ function _apply_zscore_normalization(labels::AbstractArray, stats::NamedTuple)
                 normalized[row, :] .= 0
             else
                 normalized[row, :] = @views (labels[row, :] .- mu) ./ sigma
+            end
+        end
+        return normalized
+    end
+end
+
+function _apply_zscore_wt_normalization(labels::AbstractArray, stats::NamedTuple)
+    if stats.mode == :vector || stats.mode == :global
+        ref, sigma = stats.reference, stats.std
+        if sigma == 0
+            return labels .- ref
+        end
+        return (labels .- ref) ./ sigma
+    elseif stats.mode == :columnwise
+        normalized = similar(labels)
+        for col in axes(labels, 2)
+            ref, sigma = stats.references[col], stats.stds[col]
+            if sigma == 0
+                normalized[:, col] = @views labels[:, col] .- ref
+            else
+                normalized[:, col] = @views (labels[:, col] .- ref) ./ sigma
+            end
+        end
+        return normalized
+    else # :rowwise
+        normalized = similar(labels)
+        for row in axes(labels, 1)
+            ref, sigma = stats.references[row], stats.stds[row]
+            if sigma == 0
+                normalized[row, :] = @views labels[row, :] .- ref
+            else
+                normalized[row, :] = @views (labels[row, :] .- ref) ./ sigma
             end
         end
         return normalized

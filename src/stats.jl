@@ -26,7 +26,8 @@ function _compute_stats_vector(
     range::Tuple{Real,Real}, 
     clip_quantiles::Union{Nothing,Tuple{Real,Real}},
     log_shift::Real;
-    warn_on_nan::Bool=true
+    warn_on_nan::Bool=true,
+    wt_reference=nothing
 )
     T = eltype(labels)
     # Compute clip bounds if clipping is requested
@@ -69,6 +70,23 @@ function _compute_stats_vector(
         functor = ZScoreScaleBack{T}(mu, sigma)
         return (
             method=:zscore, 
+            mean=mu, 
+            std=sigma, 
+            mode=:vector, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
+    elseif method == :zscore_wt
+        # Centre on the supplied reference instead of the sample mean. `mean` is
+        # still reported so consumers that read stats.mean keep working.
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
+        mu, sigma = convert(T, mu), convert(T, sigma)
+        ref = convert(T, _wtref(wt_reference, 1))
+        functor = ZScoreWTScaleBack{T}(ref, sigma)
+        return (
+            method=:zscore_wt, 
+            reference=ref, 
             mean=mu, 
             std=sigma, 
             mode=:vector, 
@@ -208,7 +226,8 @@ function _compute_stats_global(
     range::Tuple{Real,Real}, 
     clip_quantiles::Union{Nothing,Tuple{Real,Real}},
     log_shift::Real;
-    warn_on_nan::Bool=true
+    warn_on_nan::Bool=true,
+    wt_reference=nothing
 )
     T = eltype(labels)
     # Compute clip bounds if clipping is requested
@@ -251,6 +270,23 @@ function _compute_stats_global(
         functor = ZScoreScaleBack{T}(mu, sigma)
         return (
             method=:zscore, 
+            mean=mu, 
+            std=sigma, 
+            mode=:global, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=functor
+        )
+    elseif method == :zscore_wt
+        # Centre on the supplied reference instead of the sample mean. `mean` is
+        # still reported so consumers that read stats.mean keep working.
+        mu, sigma = _safe_mean_std(labels; warn_on_nan=warn_on_nan)
+        mu, sigma = convert(T, mu), convert(T, sigma)
+        ref = convert(T, _wtref(wt_reference, 1))
+        functor = ZScoreWTScaleBack{T}(ref, sigma)
+        return (
+            method=:zscore_wt, 
+            reference=ref, 
             mean=mu, 
             std=sigma, 
             mode=:global, 
@@ -389,7 +425,8 @@ function _compute_stats_columnwise(
     range::Tuple{Real,Real}, 
     clip_quantiles::Union{Nothing,Tuple{Real,Real}},
     log_shift::Real;
-    warn_on_nan::Bool=true
+    warn_on_nan::Bool=true,
+    wt_reference=nothing
 )
     n_cols = size(labels, 2)
     T = eltype(labels)
@@ -456,6 +493,31 @@ function _compute_stats_columnwise(
         col_functor = ColumnwiseScaleBack{T, ZScoreScaleBack{T}}(functors)
         return (
             method=:zscore, 
+            means=means, 
+            stds=stds, 
+            mode=:columnwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=col_functor
+        )
+    elseif method == :zscore_wt
+        references = T[]
+        means = T[]
+        stds = T[]
+        functors = ZScoreWTScaleBack{T}[]
+        for col in 1:n_cols
+            mu, sigma = _safe_mean_std(labels[:, col]; warn_on_nan=warn_on_nan)
+            mu, sigma = convert(T, mu), convert(T, sigma)
+            ref = convert(T, _wtref(wt_reference, col))
+            push!(references, ref)
+            push!(means, mu)
+            push!(stds, sigma)
+            push!(functors, ZScoreWTScaleBack{T}(ref, sigma))
+        end
+        col_functor = ColumnwiseScaleBack{T, ZScoreWTScaleBack{T}}(functors)
+        return (
+            method=:zscore_wt, 
+            references=references, 
             means=means, 
             stds=stds, 
             mode=:columnwise, 
@@ -591,7 +653,8 @@ function _compute_stats_rowwise(
     range::Tuple{Real,Real}, 
     clip_quantiles::Union{Nothing,Tuple{Real,Real}},
     log_shift::Real;
-    warn_on_nan::Bool=true
+    warn_on_nan::Bool=true,
+    wt_reference=nothing
 )
     n_rows = size(labels, 1)
     T = eltype(labels)
@@ -657,6 +720,31 @@ function _compute_stats_rowwise(
         row_functor = RowwiseScaleBack{T, ZScoreScaleBack{T}}(functors)
         return (
             method=:zscore, 
+            means=means, 
+            stds=stds, 
+            mode=:rowwise, 
+            clip_quantiles=clip_quantiles,
+            clip_bounds=clip_bounds,
+            scale_back_functor=row_functor
+        )
+    elseif method == :zscore_wt
+        references = T[]
+        means = T[]
+        stds = T[]
+        functors = ZScoreWTScaleBack{T}[]
+        for row in 1:n_rows
+            mu, sigma = _safe_mean_std(labels[row, :]; warn_on_nan=warn_on_nan)
+            mu, sigma = convert(T, mu), convert(T, sigma)
+            ref = convert(T, _wtref(wt_reference, row))
+            push!(references, ref)
+            push!(means, mu)
+            push!(stds, sigma)
+            push!(functors, ZScoreWTScaleBack{T}(ref, sigma))
+        end
+        row_functor = RowwiseScaleBack{T, ZScoreWTScaleBack{T}}(functors)
+        return (
+            method=:zscore_wt, 
+            references=references, 
             means=means, 
             stds=stds, 
             mode=:rowwise, 
